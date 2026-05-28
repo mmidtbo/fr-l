@@ -40,31 +40,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { OrderReceipt } from "@/components/OrderReceipt";
-import type { Order, Customer, ServicePrice } from "@/lib/types";
+import type { Order, Customer, ServicePrice, PaymentStatus } from "@/lib/types";
 import {
-  SERVICE_TYPE_LABELS,
+  CUSTOMERS,
+  ORDERS,
+  SERVICE,
   STATUS_LABELS,
   STATUS_NEXT,
+  PAYMENT_LABELS,
   formatRupiah,
-  generateOrderCode,
-  getUnitLabel,
 } from "@/lib/types";
+import api from "@/lib/api/axios";
 
 const STATUS_TABS: { value: string; label: string }[] = [
   { value: "all", label: "Semua" },
   { value: "received", label: "Diterima" },
-  { value: "washing", label: "Dicuci" },
+  { value: "proses", label: "Diproses" },
+  { value: "cuci", label: "Dicuci" },
+  { value: "jemur", label: "Dijemur" },
+  { value: "setrika", label: "Disetrika" },
   { value: "ready", label: "Siap Diambil" },
   { value: "picked_up", label: "Sudah Diambil" },
 ];
 
 export function OrdersPage() {
-  const { profile } = useAuth();
-  const isOwner = profile?.role === "owner";
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner";
 
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [customers, setCustomers] = React.useState<Customer[]>([]);
@@ -88,11 +92,12 @@ export function OrdersPage() {
   const [newCustName, setNewCustName] = React.useState("");
   const [newCustPhone, setNewCustPhone] = React.useState("");
   const [newCustAddress, setNewCustAddress] = React.useState("");
-  const [serviceType, setServiceType] = React.useState<
-    "kiloan" | "satuan" | "express" | "meter"
-  >("kiloan");
+  const [selectedServicePriceId, setSelectedServicePriceId] =
+    React.useState("");
   const [quantity, setQuantity] = React.useState("");
   const [isExpress, setIsExpress] = React.useState(false);
+  const [paymentStatus, setPaymentStatus] =
+    React.useState<PaymentStatus>("pending");
   const [conditionNotes, setConditionNotes] = React.useState("");
   const [formError, setFormError] = React.useState("");
 
@@ -102,39 +107,43 @@ export function OrdersPage() {
 
   async function fetchAll() {
     setLoading(true);
-    const [ordersRes, custRes, priceRes] = await Promise.all([
-      supabase
-        .from("orders")
-        .select("*, customer:customers(id, name, phone, address, created_at)")
-        .order("created_at", { ascending: false }),
-      supabase.from("customers").select("*").order("name"),
-      supabase.from("service_prices").select("*"),
-    ]);
-    setOrders(ordersRes.data ?? []);
-    setCustomers(custRes.data ?? []);
-    setPrices(priceRes.data ?? []);
+    try {
+      const [ordersRes, customersRes, servicesRes] = await Promise.all([
+        api.get(ORDERS),
+        api.get(CUSTOMERS),
+        api.get(SERVICE),
+      ]);
+      const ordersData: Order[] = ordersRes.data ?? [];
+      const customersData: Customer[] = customersRes.data ?? [];
+      const servicesData: ServicePrice[] = servicesRes.data ?? [];
+
+      const enriched: Order[] = ordersData.map((o) => ({
+        ...o,
+        quantity: Number(o.quantity) || 0,
+        base_price: Number(o.base_price) || 0,
+        express_surcharge: Number(o.express_surcharge) || 0,
+        total_price: Number(o.total_price) || 0,
+        is_express: Boolean(o.is_express),
+        is_overdue: Boolean(o.is_overdue),
+        needs_weight_label: Boolean(o.needs_weight_label),
+        customer: customersData.find((c) => c.id === o.customer_id),
+        service_price: servicesData.find((s) => s.id === o.service_price_id),
+      }));
+      setOrders(enriched);
+      setCustomers(customersData);
+      setPrices(servicesData.filter((s) => s.is_active));
+    } catch {
+      // silent
+    }
     setLoading(false);
   }
 
-  function calcPrice(
-    type: typeof serviceType,
-    qty: number,
-    express: boolean,
-  ): { base: number; surcharge: number; total: number } {
-    const baseType = type === "express" ? "kiloan" : type;
-    const priceRow = prices.find((p) => p.service_type === baseType);
-    const basePrice = (priceRow?.price_per_unit ?? 0) * qty;
-    const surcharge =
-      type === "express" || express ? Math.round(basePrice * 0.5) : 0;
-    return { base: basePrice, surcharge, total: basePrice + surcharge };
-  }
+  const selectedService = React.useMemo(
+    () => prices.find((p) => p.id === selectedServicePriceId),
+    [prices, selectedServicePriceId],
+  );
 
   const qty = parseFloat(quantity) || 0;
-  const effectiveType =
-    serviceType === "kiloan" && isExpress ? "express" : serviceType;
-  const calculated = calcPrice(effectiveType, qty, false);
-  const needsWeightLabel =
-    (serviceType === "kiloan" || serviceType === "express") && qty > 10;
 
   async function handleSubmitOrder() {
     setFormError("");
@@ -150,75 +159,40 @@ export function OrdersPage() {
       setFormError("Nomor HP tidak boleh kosong.");
       return;
     }
-    if (!quantity || qty <= 0) {
-      setFormError("Jumlah/berat tidak boleh kosong.");
+    if (!selectedServicePriceId) {
+      setFormError("Pilih layanan terlebih dahulu.");
       return;
     }
-    if (calculated.total <= 0) {
-      setFormError("Harga tidak valid. Pastikan data harga sudah diatur.");
+    if (!quantity || qty <= 0) {
+      setFormError("Jumlah/berat tidak boleh kosong.");
       return;
     }
 
     setSubmitting(true);
     try {
-      let customerId = selectedCustId;
+      let custId = selectedCustId;
       if (custMode === "new") {
-        const { data: newCust, error: custErr } = await supabase
-          .from("customers")
-          .insert({
-            name: newCustName.trim(),
-            phone: newCustPhone.trim(),
-            address: newCustAddress.trim(),
-          })
-          .select()
-          .single();
-        if (custErr) throw new Error("Gagal menyimpan data pelanggan.");
-        customerId = newCust.id;
+        const res = await api.post(CUSTOMERS, {
+          name: newCustName.trim(),
+          phone: newCustPhone.trim(),
+          address: newCustAddress.trim(),
+        });
+        custId = (res as any).data?.id ?? (res as any).id;
       }
 
-      const now = new Date();
-      const estimatedDone = new Date(now);
-      estimatedDone.setDate(estimatedDone.getDate() + 2);
-      const finalType =
-        serviceType === "kiloan" && isExpress ? "express" : serviceType;
-
-      const { data: newOrder, error: orderErr } = await supabase
-        .from("orders")
-        .insert({
-          order_code: generateOrderCode(now),
-          customer_id: customerId,
-          service_type: finalType,
-          quantity: qty,
-          is_express: isExpress || serviceType === "express",
-          base_price: calculated.base,
-          express_surcharge: calculated.surcharge,
-          total_price: calculated.total,
-          status: "received",
-          needs_weight_label: needsWeightLabel,
-          condition_notes: conditionNotes.trim(),
-          estimated_done: estimatedDone.toISOString(),
-          created_by: profile?.id,
-        })
-        .select("*, customer:customers(id, name, phone, address, created_at)")
-        .single();
-
-      if (orderErr) throw new Error("Gagal menyimpan pesanan.");
-
-      await supabase.from("order_audit_log").insert({
-        order_id: newOrder.id,
-        user_id: profile?.id,
-        old_status: null,
-        new_status: "received",
-        notes: "Pesanan baru dibuat",
+      await api.post(ORDERS, {
+        customer_id: custId,
+        service_price_id: selectedServicePriceId,
+        quantity: qty,
+        is_express: isExpress ? 1 : 0,
+        condition_notes: conditionNotes,
       });
 
-      resetForm();
       setShowNew(false);
-      setSelectedOrder(newOrder);
-      setShowReceipt(true);
+      resetForm();
       await fetchAll();
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Terjadi kesalahan.");
+    } catch (err: any) {
+      setFormError(err.message || "Gagal menyimpan pesanan.");
     }
     setSubmitting(false);
   }
@@ -226,22 +200,12 @@ export function OrdersPage() {
   async function handleUpdateStatus(order: Order) {
     const next = STATUS_NEXT[order.status];
     if (!next) return;
-    await supabase
-      .from("orders")
-      .update({
-        status: next,
-        ...(next === "picked_up"
-          ? { picked_up_at: new Date().toISOString() }
-          : {}),
-      })
-      .eq("id", order.id);
-    await supabase.from("order_audit_log").insert({
-      order_id: order.id,
-      user_id: profile?.id,
-      old_status: order.status,
-      new_status: next,
-    });
-    await fetchAll();
+    try {
+      await api.put(`${ORDERS}/${order.id}`, { status: next });
+      await fetchAll();
+    } catch {
+      // silent
+    }
   }
 
   function resetForm() {
@@ -250,9 +214,10 @@ export function OrdersPage() {
     setNewCustName("");
     setNewCustPhone("");
     setNewCustAddress("");
-    setServiceType("kiloan");
+    setSelectedServicePriceId("");
     setQuantity("");
     setIsExpress(false);
+    setPaymentStatus("pending");
     setConditionNotes("");
     setFormError("");
   }
@@ -406,6 +371,9 @@ export function OrdersPage() {
                       <TableHead className="text-center">Total</TableHead>
                     )}
                     <TableHead>Status</TableHead>
+                    {isOwner && (
+                      <TableHead className="text-center">Bayar</TableHead>
+                    )}
                     <TableHead>Tanggal Masuk</TableHead>
                     <TableHead className="text-center">Aksi</TableHead>
                   </TableRow>
@@ -425,11 +393,6 @@ export function OrdersPage() {
                           <span className="font-mono text-sm font-semibold">
                             {order.order_code}
                           </span>
-                          {/* {order.needs_weight_label && ( */}
-                          {/*   <span title="Perlu label berat (>10kg)"> */}
-                          {/*     <Weight className="size-3.5 text-amber-500 justify-self-end" /> */}
-                          {/*   </span> */}
-                          {/* )} */}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -444,11 +407,11 @@ export function OrdersPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">
-                          {SERVICE_TYPE_LABELS[order.service_type]}
+                          {order.service_price?.name ?? "-"}
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {order.quantity} {getUnitLabel(order.service_type)}
+                        {order.quantity} {order.service_price?.unit_label ?? ""}
                       </TableCell>
                       {isOwner && (
                         <TableCell className="text-center font-medium text-sm">
@@ -461,6 +424,21 @@ export function OrdersPage() {
                           isOverdue={order.is_overdue}
                         />
                       </TableCell>
+                      {isOwner && (
+                        <TableCell className="text-center">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              order.payment_status === "lunas"
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : order.payment_status === "cicilan"
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {PAYMENT_LABELS[order.payment_status]}
+                          </span>
+                        </TableCell>
+                      )}
                       <TableCell className="text-xs text-muted-foreground">
                         {new Date(order.created_at).toLocaleDateString(
                           "id-ID",
@@ -583,41 +561,42 @@ export function OrdersPage() {
 
             {/* Service Section */}
             <div className="space-y-3">
-              <Label className="text-sm font-semibold">Jenis Layanan</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {(["kiloan", "satuan", "express", "meter"] as const).map(
-                  (type) => (
-                    <button
-                      key={type}
-                      onClick={() => {
-                        setServiceType(type);
-                        if (type !== "kiloan") setIsExpress(false);
-                      }}
-                      className={`rounded-lg border p-3 text-left transition-colors ${
-                        serviceType === type
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border hover:bg-accent"
-                      }`}
-                    >
-                      <p className="font-medium text-sm">
-                        {SERVICE_TYPE_LABELS[type]}
+              <Label className="text-sm font-semibold">Pilih Layanan</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                {prices.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedServicePriceId(p.id);
+                      if (p.pricing_type !== "per_kg") setIsExpress(false);
+                    }}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      selectedServicePriceId === p.id
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:bg-accent"
+                    }`}
+                  >
+                    <p className="font-medium text-sm">{p.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {p.pricing_type === "per_kg"
+                        ? `Rp${p.price_min}/${p.unit_label}`
+                        : p.pricing_type === "per_pcs"
+                          ? `Rp${p.price_min}/${p.unit_label}`
+                          : p.pricing_type === "fixed"
+                            ? `Rp${p.price_min} (fixed)`
+                            : `Rp${p.price_min} - Rp${p.price_max}`}
+                    </p>
+                    {p.pricing_type === "per_kg" && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Express +50%
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {type === "kiloan"
-                          ? "Per kilogram"
-                          : type === "satuan"
-                            ? "Per item/helai"
-                            : type === "express"
-                              ? "Kiloan + 50%"
-                              : "Per meter"}
-                      </p>
-                    </button>
-                  ),
-                )}
+                    )}
+                  </button>
+                ))}
               </div>
 
-              {/* Express toggle for kiloan */}
-              {serviceType === "kiloan" && (
+              {/* Express toggle for per_kg */}
+              {selectedService?.pricing_type === "per_kg" && (
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="text-sm font-medium">
@@ -634,23 +613,35 @@ export function OrdersPage() {
               {/* Quantity */}
               <div className="space-y-1.5">
                 <Label htmlFor="qty">
-                  Jumlah (
-                  {getUnitLabel(
-                    serviceType === "kiloan" && isExpress
-                      ? "express"
-                      : serviceType,
-                  )}
-                  )
+                  Jumlah ({selectedService?.unit_label ?? ""})
                 </Label>
                 <Input
                   id="qty"
                   type="number"
                   min="0.1"
                   step="0.1"
-                  placeholder={`Masukkan ${getUnitLabel(serviceType)}`}
+                  placeholder={`Masukkan ${selectedService?.unit_label ?? "jumlah"}`}
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                 />
+              </div>
+
+              {/* Payment Status */}
+              <div className="space-y-1.5">
+                <Label htmlFor="payment">Status Pembayaran</Label>
+                <Select
+                  value={paymentStatus}
+                  onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}
+                >
+                  <SelectTrigger id="payment" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="lunas">Lunas</SelectItem>
+                    <SelectItem value="cicilan">Cicilan</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -666,45 +657,6 @@ export function OrdersPage() {
                 rows={2}
               />
             </div>
-
-            {/* Price Preview */}
-            {qty > 0 && calculated.total > 0 && (
-              <div className="rounded-lg bg-muted/50 border p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Ringkasan Biaya
-                </p>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {qty} {getUnitLabel(serviceType)} ×{" "}
-                    {formatRupiah(
-                      prices.find(
-                        (p) =>
-                          p.service_type ===
-                          (serviceType === "express" ? "kiloan" : serviceType),
-                      )?.price_per_unit ?? 0,
-                    )}
-                  </span>
-                  <span>{formatRupiah(calculated.base)}</span>
-                </div>
-                {calculated.surcharge > 0 && (
-                  <div className="flex justify-between text-sm text-amber-600">
-                    <span>Biaya Express (+50%)</span>
-                    <span>+{formatRupiah(calculated.surcharge)}</span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between font-bold">
-                  <span>Total</span>
-                  <span>{formatRupiah(calculated.total)}</span>
-                </div>
-                {needsWeightLabel && (
-                  <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                    <Weight className="size-3" />
-                    Cucian &gt;10kg — akan diberi label berat
-                  </p>
-                )}
-              </div>
-            )}
 
             {formError && (
               <p className="text-sm text-destructive">{formError}</p>

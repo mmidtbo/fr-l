@@ -7,7 +7,7 @@ import {
   LogOut,
   WashingMachine,
   ChevronUp,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,42 +20,50 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@/components/ui/sidebar'
+} from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { useAuth } from '@/contexts/AuthContext'
-
-type PageName = 'dashboard' | 'orders' | 'customers' | 'reports' | 'settings'
-
-interface AppSidebarProps {
-  currentPage: PageName
-  onNavigate: (page: PageName) => void
-}
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 
 const mainNav = [
-  { page: 'dashboard' as PageName, label: 'Dashboard', icon: LayoutDashboard },
-  { page: 'orders' as PageName, label: 'Pesanan', icon: ShoppingBag },
-  { page: 'customers' as PageName, label: 'Pelanggan', icon: Users },
-]
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/orders", label: "Pesanan", icon: ShoppingBag },
+  { path: "/customers", label: "Pelanggan", icon: Users },
+];
 
 const ownerNav = [
-  { page: 'reports' as PageName, label: 'Laporan', icon: BarChart3 },
-  { page: 'settings' as PageName, label: 'Pengaturan', icon: Settings },
-]
+  { path: "/reports", label: "Laporan", icon: BarChart3 },
+  { path: "/settings", label: "Pengaturan", icon: Settings },
+];
 
-export function AppSidebar({ currentPage, onNavigate }: AppSidebarProps) {
-  const { profile, signOut } = useAuth()
-  const { state } = useSidebar()
-  const isCollapsed = state === 'collapsed'
+export function AppSidebar() {
+  const { user, loading, signOut } = useAuth();
+  const { state } = useSidebar();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isCollapsed = state === "collapsed";
 
-  const initials = profile?.name
-    ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : '??'
+  if (loading) {
+    toast("Loading...");
+  }
+
+  if (!user) {
+    toast("No user detected");
+  }
+
+  const initials = user.email ? user.email : "??";
+  const handleLogout = async (): Promise<void> => {
+    toast("Logout Succesfully");
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -69,8 +77,12 @@ export function AppSidebar({ currentPage, onNavigate }: AppSidebarProps) {
                 </div>
                 {!isCollapsed && (
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Gresik Laundry</span>
-                    <span className="truncate text-xs text-muted-foreground">Sistem Manajemen</span>
+                    <span className="truncate font-semibold">
+                      Gresik Laundry
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      Sistem Manajemen
+                    </span>
                   </div>
                 )}
               </div>
@@ -84,11 +96,11 @@ export function AppSidebar({ currentPage, onNavigate }: AppSidebarProps) {
           <SidebarGroupLabel>Menu Utama</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNav.map(({ page, label, icon: Icon }) => (
-                <SidebarMenuItem key={page}>
+              {mainNav.map(({ path, label, icon: Icon }) => (
+                <SidebarMenuItem key={path}>
                   <SidebarMenuButton
-                    isActive={currentPage === page}
-                    onClick={() => onNavigate(page)}
+                    isActive={location.pathname === path}
+                    onClick={() => navigate(path)}
                     tooltip={label}
                   >
                     <Icon />
@@ -100,16 +112,16 @@ export function AppSidebar({ currentPage, onNavigate }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {profile?.role === 'owner' && (
+        {user?.role === "owner" && (
           <SidebarGroup>
             <SidebarGroupLabel>Manajemen</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {ownerNav.map(({ page, label, icon: Icon }) => (
-                  <SidebarMenuItem key={page}>
+                {ownerNav.map(({ path, label, icon: Icon }) => (
+                  <SidebarMenuItem key={path}>
                     <SidebarMenuButton
-                      isActive={currentPage === page}
-                      onClick={() => onNavigate(page)}
+                      isActive={location.pathname === path}
+                      onClick={() => navigate(path)}
                       tooltip={label}
                     >
                       <Icon />
@@ -130,16 +142,20 @@ export function AppSidebar({ currentPage, onNavigate }: AppSidebarProps) {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  tooltip={profile?.name ?? 'Pengguna'}
+                  tooltip={user?.email ?? "Pengguna"}
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="size-8 rounded-lg shrink-0">
-                    <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
+                    <AvatarFallback className="rounded-lg text-xs">
+                      {initials}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{profile?.name ?? 'Memuat...'}</span>
+                    <span className="truncate font-semibold">
+                      {user?.email ?? "Memuat..."}
+                    </span>
                     <span className="truncate text-xs text-muted-foreground capitalize">
-                      {profile?.role === 'owner' ? 'Pemilik' : 'Karyawan'}
+                      {user?.role === "owner" ? "Pemilik" : "Karyawan"}
                     </span>
                   </div>
                   <ChevronUp className="ml-auto size-4" />
@@ -151,7 +167,7 @@ export function AppSidebar({ currentPage, onNavigate }: AppSidebarProps) {
                 align="end"
                 sideOffset={4}
               >
-                <DropdownMenuItem onClick={() => signOut()}>
+                <DropdownMenuItem onClick={handleLogout}>
                   <LogOut />
                   Keluar
                 </DropdownMenuItem>
@@ -161,5 +177,5 @@ export function AppSidebar({ currentPage, onNavigate }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

@@ -1,39 +1,51 @@
-import { Printer, WashingMachine } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import type { Order } from '@/lib/types'
-import { SERVICE_TYPE_LABELS, formatRupiah, getUnitLabel } from '@/lib/types'
+import { Printer, WashingMachine } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import type { Order } from "@/lib/types";
+import { formatRupiah, STATUS_LABELS } from "@/lib/types";
 
 interface OrderReceiptProps {
-  order: Order
+  order: Order;
 }
 
 export function OrderReceipt({ order }: OrderReceiptProps) {
   const estimatedDate = order.estimated_done
-    ? new Date(order.estimated_done).toLocaleDateString('id-ID', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    ? new Date(order.estimated_done).toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
       })
-    : '-'
+    : "-";
 
-  const createdDate = new Date(order.created_at).toLocaleDateString('id-ID', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+  const createdDate = new Date(order.created_at).toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const handlePrint = () => {
-    window.print()
-  }
+    window.print();
+  };
 
   return (
     <div className="space-y-4">
-      <div className="print:block border rounded-lg p-6 bg-white text-foreground text-sm" id="receipt-content">
+      <div
+        className="print:block border rounded-lg p-6 bg-white text-foreground text-sm"
+        id="receipt-content"
+      >
         {/* Header */}
         <div className="text-center space-y-1 mb-4">
           <div className="flex items-center justify-center gap-2">
             <WashingMachine className="size-6 text-primary" />
             <h2 className="text-xl font-bold">Gresik Laundry</h2>
           </div>
-          <p className="text-muted-foreground text-xs">Jl. Raya Gresik, Gresik, Jawa Timur</p>
+          <p className="text-muted-foreground text-xs">
+            Jl. Raya Gresik, Gresik, Jawa Timur
+          </p>
           <p className="text-muted-foreground text-xs">Telp: 0812-3456-7890</p>
         </div>
 
@@ -42,7 +54,9 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         {/* Order Code */}
         <div className="my-3 text-center">
           <p className="text-xs text-muted-foreground">Kode Order</p>
-          <p className="text-lg font-bold tracking-widest font-mono">{order.order_code}</p>
+          <p className="text-lg font-bold tracking-widest font-mono">
+            {order.order_code}
+          </p>
           <p className="text-xs text-muted-foreground mt-1">{createdDate}</p>
         </div>
 
@@ -52,11 +66,15 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         <div className="my-3 space-y-1">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Pelanggan</span>
-            <span className="font-medium">{order.customer?.name ?? '-'}</span>
+            <span className="font-medium">
+              {order.customer?.name ?? "-"}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">No. HP</span>
-            <span className="font-medium">{order.customer?.phone ?? '-'}</span>
+            <span className="font-medium">
+              {order.customer?.phone ?? "-"}
+            </span>
           </div>
         </div>
 
@@ -66,23 +84,36 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         <div className="my-3 space-y-1">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Jenis Layanan</span>
-            <span className="font-medium">{SERVICE_TYPE_LABELS[order.service_type]}</span>
+            <span className="font-medium">
+              {order.service_price?.name ?? "-"}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Jumlah</span>
             <span className="font-medium">
-              {order.quantity} {getUnitLabel(order.service_type)}
+              {order.quantity} {order.service_price?.unit_label ?? ""}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Status</span>
+            <span className="font-medium">
+              {STATUS_LABELS[order.status]}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Pembayaran</span>
+            <span className="font-medium capitalize">
+              {order.payment_status === "lunas"
+                ? "Lunas"
+                : order.payment_status === "cicilan"
+                  ? "Cicilan"
+                  : "Pending"}
             </span>
           </div>
           {order.is_express && (
             <div className="flex justify-between text-amber-600">
               <span>Express (+50%)</span>
               <span>+{formatRupiah(order.express_surcharge)}</span>
-            </div>
-          )}
-          {order.needs_weight_label && (
-            <div className="text-xs text-amber-600 font-medium mt-1">
-              ⚠ Cucian berat (&gt;10kg) - perlu label berat
             </div>
           )}
         </div>
@@ -113,7 +144,9 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         <div className="my-3">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Estimasi Selesai</span>
-            <span className="font-medium text-right max-w-[180px]">{estimatedDate}</span>
+            <span className="font-medium text-right max-w-[180px]">
+              {estimatedDate}
+            </span>
           </div>
         </div>
 
@@ -122,7 +155,9 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
           <>
             <Separator />
             <div className="my-3">
-              <p className="text-muted-foreground text-xs mb-1">Catatan Kondisi</p>
+              <p className="text-muted-foreground text-xs mb-1">
+                Catatan Kondisi
+              </p>
               <p className="text-sm">{order.condition_notes}</p>
             </div>
           </>
@@ -134,9 +169,17 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         <div className="mt-3 text-center text-xs text-muted-foreground space-y-1">
           <p className="font-medium">Catatan Penting</p>
           <p>Mohon simpan nota ini sebagai bukti pengambilan.</p>
-          <p>Gresik Laundry tidak bertanggung jawab atas kerusakan yang sudah ada sebelumnya.</p>
-          <p>Pakaian yang tidak diambil lebih dari 30 hari menjadi tanggung jawab pelanggan.</p>
-          <p className="font-medium mt-2">Terima kasih sudah mempercayakan cucian Anda kepada kami!</p>
+          <p>
+            Gresik Laundry tidak bertanggung jawab atas kerusakan yang sudah
+            ada sebelumnya.
+          </p>
+          <p>
+            Pakaian yang tidak diambil lebih dari 30 hari menjadi tanggung jawab
+            pelanggan.
+          </p>
+          <p className="font-medium mt-2">
+            Terima kasih sudah mempercayakan cucian Anda kepada kami!
+          </p>
         </div>
       </div>
 
@@ -145,5 +188,5 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         Cetak Nota
       </Button>
     </div>
-  )
+  );
 }

@@ -291,18 +291,7 @@
 <path fill="none" stroke="#757575" d="M701.06,-563.04C727.15,-543.4 781.99,-504.54 834.25,-483.11 854.34,-474.87 877.55,-468.98 897.75,-464.91"/>
 <polygon fill="#757575" stroke="#757575" points="898.28,-468.37 907.45,-463.06 896.97,-461.49 898.28,-468.37"/>
 </g>
-<!-- lib/supabase.ts -->
-<g id="node72" class="node">
-<title>lib/supabase.ts</title>
-<path fill="none" stroke="#cfffac" d="M994.21,-426.99C994.21,-426.99 904.04,-426.99 904.04,-426.99 900.08,-426.99 896.12,-423.03 896.12,-419.07 896.12,-419.07 896.12,-411.15 896.12,-411.15 896.12,-407.2 900.08,-403.24 904.04,-403.24 904.04,-403.24 994.21,-403.24 994.21,-403.24 998.17,-403.24 1002.12,-407.2 1002.12,-411.15 1002.12,-411.15 1002.12,-419.07 1002.12,-419.07 1002.12,-423.03 998.17,-426.99 994.21,-426.99"/>
-<text xml:space="preserve" text-anchor="middle" x="949.12" y="-409.69" font-family="Arial" font-size="14.00" fill="#cfffac">lib/supabase.ts</text>
-</g>
-<!-- contexts/AuthContext.tsx&#45;&gt;lib/supabase.ts -->
-<g id="edge97" class="edge">
-<title>contexts/AuthContext.tsx&#45;&gt;lib/supabase.ts</title>
-<path fill="none" stroke="#757575" d="M694.36,-563.05C715.29,-535.54 770.81,-468.09 834.25,-436.11 849.71,-428.32 867.66,-423.39 884.67,-420.28"/>
-<polygon fill="#757575" stroke="#757575" points="884.88,-423.8 894.19,-418.74 883.75,-416.89 884.88,-423.8"/>
-</g>
+
 <!-- pages/CustomersPage.tsx&#45;&gt;components/ui/skeleton.tsx -->
 <g id="edge107" class="edge">
 <title>pages/CustomersPage.tsx&#45;&gt;components/ui/skeleton.tsx</title>
@@ -375,12 +364,7 @@
 <path fill="none" stroke="#757575" d="M443.67,-778.81C456.4,-730.97 503.31,-552.62 534.75,-404.11 553.46,-315.75 517.29,-276.91 570.75,-204.11 585.12,-184.54 607.94,-170.89 629.31,-161.7"/>
 <polygon fill="#757575" stroke="#757575" points="630.58,-164.96 638.56,-157.98 627.97,-158.46 630.58,-164.96"/>
 </g>
-<!-- pages/CustomersPage.tsx&#45;&gt;lib/supabase.ts -->
-<g id="edge109" class="edge">
-<title>pages/CustomersPage.tsx&#45;&gt;lib/supabase.ts</title>
-<path fill="none" stroke="#757575" d="M442.17,-778.82C451.83,-714.49 499.86,-417.55 570.75,-365.11 652.04,-304.98 702.9,-331.48 798.25,-365.11 817.63,-371.95 815.58,-385.54 834.25,-394.11 849.91,-401.3 867.85,-406.03 884.79,-409.14"/>
-<polygon fill="#757575" stroke="#757575" points="883.81,-412.52 894.25,-410.71 884.96,-405.62 883.81,-412.52"/>
-</g>
+
 <!-- pages/DashboardPage.tsx&#45;&gt;components/ui/skeleton.tsx -->
 <g id="edge115" class="edge">
 <title>pages/DashboardPage.tsx&#45;&gt;components/ui/skeleton.tsx</title>
@@ -441,12 +425,7 @@
 <path fill="none" stroke="#757575" d="M458.11,-232.82C482.45,-216.48 528.07,-187.74 570.75,-171.11 581.46,-166.94 593.01,-163.33 604.5,-160.25"/>
 <polygon fill="#757575" stroke="#757575" points="605.17,-163.69 614,-157.83 603.44,-156.91 605.17,-163.69"/>
 </g>
-<!-- pages/DashboardPage.tsx&#45;&gt;lib/supabase.ts -->
-<g id="edge118" class="edge">
-<title>pages/DashboardPage.tsx&#45;&gt;lib/supabase.ts</title>
-<path fill="none" stroke="#757575" d="M443.82,-232.81C454.89,-195.91 493.45,-86.11 570.75,-44.11 659.6,4.16 723.19,23.63 798.25,-44.11 856.3,-96.49 781.21,-336.66 834.25,-394.11 847.07,-408 865.83,-414.52 884.45,-417.21"/>
-<polygon fill="#757575" stroke="#757575" points="883.83,-420.66 894.14,-418.24 884.57,-413.7 883.83,-420.66"/>
-</g>
+
 <!-- pages/LoginPage.tsx&#45;&gt;contexts/AuthContext.tsx -->
 <g id="edge126" class="edge">
 <title>pages/LoginPage.tsx&#45;&gt;contexts/AuthContext.tsx</title>
@@ -627,12 +606,7 @@
 <path fill="none" stroke="#757575" d="M447.19,-1095.19C464.85,-1127.07 512.25,-1216.55 534.75,-1297.11 551.44,-1356.9 528.08,-1529.03 570.75,-1574.11 577.76,-1581.52 586.48,-1586.8 595.94,-1590.52"/>
 <polygon fill="#757575" stroke="#757575" points="594.86,-1593.84 605.45,-1593.6 597.02,-1587.19 594.86,-1593.84"/>
 </g>
-<!-- pages/OrdersPage.tsx&#45;&gt;lib/supabase.ts -->
-<g id="edge143" class="edge">
-<title>pages/OrdersPage.tsx&#45;&gt;lib/supabase.ts</title>
-<path fill="none" stroke="#757575" d="M445.82,-1071C462.43,-1033.46 512.64,-915.39 534.75,-812.11 544.42,-766.96 536.72,-429.32 570.75,-398.11 645.28,-329.78 697.3,-392.41 798.25,-398.11 826.73,-399.72 858.11,-403.04 884.77,-406.32"/>
-<polygon fill="#757575" stroke="#757575" points="884.02,-409.75 894.38,-407.53 884.89,-402.81 884.02,-409.75"/>
-</g>
+
 <!-- pages/ReportsPage.tsx&#45;&gt;components/ui/skeleton.tsx -->
 <g id="edge148" class="edge">
 <title>pages/ReportsPage.tsx&#45;&gt;components/ui/skeleton.tsx</title>
@@ -669,12 +643,7 @@
 <path fill="none" stroke="#757575" d="M452.59,-370.77C472.15,-350.45 510.74,-308 534.75,-266.11 557.2,-226.94 536.73,-200.8 570.75,-171.11 577.69,-165.05 585.76,-160.33 594.34,-156.66"/>
 <polygon fill="#757575" stroke="#757575" points="595.44,-159.99 603.58,-153.22 592.99,-153.43 595.44,-159.99"/>
 </g>
-<!-- pages/ReportsPage.tsx&#45;&gt;lib/supabase.ts -->
-<g id="edge150" class="edge">
-<title>pages/ReportsPage.tsx&#45;&gt;lib/supabase.ts</title>
-<path fill="none" stroke="#757575" d="M451.22,-370.96C469.49,-350.22 507.1,-306.32 534.75,-266.11 552.81,-239.86 543.14,-220.01 570.75,-204.11 614.56,-178.89 759.32,-171.86 798.25,-204.11 864.44,-258.94 773.33,-333.49 834.25,-394.11 847.47,-407.26 866.05,-413.64 884.39,-416.43"/>
-<polygon fill="#757575" stroke="#757575" points="883.88,-419.89 894.21,-417.56 884.68,-412.94 883.88,-419.89"/>
-</g>
+
 <!-- pages/SettingsPage.tsx&#45;&gt;components/ui/separator.tsx -->
 <g id="edge156" class="edge">
 <title>pages/SettingsPage.tsx&#45;&gt;components/ui/separator.tsx</title>
@@ -717,12 +686,7 @@
 <path fill="none" stroke="#757575" d="M726.17,-1055.4C750.29,-1064.64 779.69,-1079.62 798.25,-1102.11 833.7,-1145.05 798.72,-1179.24 834.25,-1222.11 850.31,-1241.48 874.38,-1255.25 896.26,-1264.59"/>
 <polygon fill="#757575" stroke="#757575" points="894.79,-1267.77 905.38,-1268.25 897.4,-1261.27 894.79,-1267.77"/>
 </g>
-<!-- pages/SettingsPage.tsx&#45;&gt;lib/supabase.ts -->
-<g id="edge158" class="edge">
-<title>pages/SettingsPage.tsx&#45;&gt;lib/supabase.ts</title>
-<path fill="none" stroke="#757575" d="M696.7,-1030.84C720.37,-1004.03 775.24,-937.26 798.25,-870.11 829.63,-778.56 769.31,-507.86 834.25,-436.11 846.99,-422.04 865.83,-415.49 884.53,-412.83"/>
-<polygon fill="#757575" stroke="#757575" points="884.69,-416.33 894.28,-411.82 883.97,-409.37 884.69,-416.33"/>
-</g>
+
 <!-- components/ui/avatar.tsx&#45;&gt;lib/utils.ts -->
 <g id="edge28" class="edge">
 <title>components/ui/avatar.tsx&#45;&gt;lib/utils.ts</title>

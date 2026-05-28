@@ -1,75 +1,116 @@
-import * as React from 'react'
-import { Save, RefreshCw, Settings } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
-import { supabase } from '@/lib/supabase'
-import type { ServicePrice } from '@/lib/types'
-import { formatRupiah } from '@/lib/types'
+import * as React from "react";
+import { Save, RefreshCw, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import type { ServicePrice } from "@/lib/types";
+import { formatRupiah, SERVICE } from "@/lib/types";
+import api from "@/lib/api/axios";
 
-const SERVICE_INFO: Record<string, { label: string; desc: string; unit: string }> = {
-  kiloan: { label: 'Laundry Kiloan', desc: 'Harga per kilogram cucian', unit: 'kg' },
-  satuan: { label: 'Laundry Satuan', desc: 'Harga per helai/item pakaian', unit: 'item' },
-  meter: { label: 'Laundry Meter', desc: 'Harga per meter (untuk gordyn, karpet, dll)', unit: 'meter' },
-}
+const CATEGORY_LABELS: Record<string, string> = {
+  basic_wash: "Cuci Biasa",
+  full_service: "Full Service",
+  ironing: "Setrika",
+  item_based: "Per Item",
+};
+
+const PRICING_TYPE_LABELS: Record<string, string> = {
+  per_kg: "Per Kg",
+  per_pcs: "Per Pcs",
+  fixed: "Fixed",
+  range: "Range",
+};
 
 export function SettingsPage() {
-  const [prices, setPrices] = React.useState<ServicePrice[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [saving, setSaving] = React.useState(false)
-  const [editValues, setEditValues] = React.useState<Record<string, string>>({})
-  const [saveMsg, setSaveMsg] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [prices, setPrices] = React.useState<ServicePrice[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [editValues, setEditValues] = React.useState<
+    Record<string, { price_min: string; price_max: string }>
+  >({});
+  const [saveMsg, setSaveMsg] = React.useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
-  React.useEffect(() => { fetchPrices() }, [])
+  React.useEffect(() => {
+    fetchPrices();
+  }, []);
 
   async function fetchPrices() {
-    setLoading(true)
-    const { data } = await supabase.from('service_prices').select('*')
-    const priceList = data ?? []
-    setPrices(priceList)
-    const vals: Record<string, string> = {}
-    priceList.forEach(p => { vals[p.service_type] = String(p.price_per_unit) })
-    setEditValues(vals)
-    setLoading(false)
+    setLoading(true);
+    try {
+      const response = await api.get(SERVICE);
+      const data = (response as any).data ?? [];
+      const list: ServicePrice[] = data.filter((p: any) => p.is_active);
+      setPrices(list);
+      const vals: Record<string, { price_min: string; price_max: string }> = {};
+      list.forEach((p) => {
+        vals[p.id] = {
+          price_min: String(p.price_min ?? ""),
+          price_max: p.price_max ? String(p.price_max) : "",
+        };
+      });
+      setEditValues(vals);
+    } catch {
+      // silent
+    }
+    setLoading(false);
   }
 
   async function handleSave() {
-    setSaving(true)
-    setSaveMsg(null)
+    setSaving(true);
+    setSaveMsg(null);
     try {
-      for (const [type, val] of Object.entries(editValues)) {
-        const numVal = parseFloat(val)
-        if (isNaN(numVal) || numVal < 0) continue
-        await supabase
-          .from('service_prices')
-          .update({ price_per_unit: numVal, updated_at: new Date().toISOString() })
-          .eq('service_type', type)
+      for (const price of prices) {
+        const vals = editValues[price.id];
+        if (!vals) continue;
+        await api.put(`${SERVICE}/${price.id}`, {
+          price_min: parseFloat(vals.price_min) || 0,
+          price_max: vals.price_max ? parseFloat(vals.price_max) : null,
+        });
       }
-      setSaveMsg({ type: 'success', text: 'Harga berhasil diperbarui!' })
-      await fetchPrices()
-    } catch {
-      setSaveMsg({ type: 'error', text: 'Gagal menyimpan harga. Coba lagi.' })
+      setSaveMsg({ type: "success", text: "Harga berhasil disimpan!" });
+      await fetchPrices();
+    } catch (err: any) {
+      setSaveMsg({
+        type: "error",
+        text: err.message || "Gagal menyimpan harga.",
+      });
     }
-    setSaving(false)
-    setTimeout(() => setSaveMsg(null), 3000)
+    setSaving(false);
+    setTimeout(() => setSaveMsg(null), 3000);
+  }
+
+  const activePrices = prices.filter((p) => p.is_active);
+
+  function getEffectivePrice(price: ServicePrice): number {
+    const vals = editValues[price.id];
+    return parseFloat(vals?.price_min ?? String(price.price_min)) || 0;
   }
 
   const expressPrice = React.useMemo(() => {
-    const kiloanPrice = parseFloat(editValues['kiloan'] ?? '0')
-    return isNaN(kiloanPrice) ? 0 : kiloanPrice * 1.5
-  }, [editValues])
+    const perKg = activePrices.find((p) => p.pricing_type === "per_kg");
+    if (!perKg) return 0;
+    return getEffectivePrice(perKg) * 1.5;
+  }, [editValues, activePrices]);
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Pengaturan</h1>
         <p className="text-muted-foreground">Kelola harga layanan laundry</p>
       </div>
 
-      {/* Pricing Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -78,84 +119,139 @@ export function SettingsPage() {
             </div>
             <div>
               <CardTitle className="text-base">Harga Layanan</CardTitle>
-              <CardDescription>Atur harga untuk setiap jenis layanan laundry</CardDescription>
+              <CardDescription>
+                Atur harga untuk setiap jenis layanan laundry
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
             <div className="space-y-4">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
             </div>
+          ) : activePrices.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Belum ada layanan yang aktif.
+            </p>
           ) : (
             <>
-              {['kiloan', 'satuan', 'meter'].map(type => {
-                const info = SERVICE_INFO[type]
+              {activePrices.map((price) => {
+                const vals = editValues[price.id] ?? {
+                  price_min: "",
+                  price_max: "",
+                };
+                const isRange = price.pricing_type === "range";
                 return (
-                  <div key={type} className="space-y-2">
+                  <div
+                    key={price.id}
+                    className="rounded-lg border p-4 space-y-3"
+                  >
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label className="text-sm font-medium">{info.label}</Label>
-                        <p className="text-xs text-muted-foreground">{info.desc}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Rp</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="500"
-                          className="w-32 text-right"
-                          value={editValues[type] ?? ''}
-                          onChange={e => setEditValues(prev => ({ ...prev, [type]: e.target.value }))}
-                        />
-                        <span className="text-sm text-muted-foreground w-10">/{info.unit}</span>
+                        <Label className="text-sm font-medium">
+                          {price.name}
+                        </Label>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Badge variant="secondary" className="text-xs">
+                            {CATEGORY_LABELS[price.category] ?? price.category}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {PRICING_TYPE_LABELS[price.pricing_type] ??
+                              price.pricing_type}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground text-right">
-                      Preview: {formatRupiah(parseFloat(editValues[type] ?? '0') || 0)} per {info.unit}
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Rp</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="500"
+                        className="w-32 text-right"
+                        value={vals.price_min}
+                        onChange={(e) =>
+                          setEditValues((prev) => ({
+                            ...prev,
+                            [price.id]: {
+                              ...prev[price.id],
+                              price_min: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      {isRange && (
+                        <>
+                          <span className="text-sm text-muted-foreground">
+                            —
+                          </span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="500"
+                            className="w-32 text-right"
+                            value={vals.price_max}
+                            onChange={(e) =>
+                              setEditValues((prev) => ({
+                                ...prev,
+                                [price.id]: {
+                                  ...prev[price.id],
+                                  price_max: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </>
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        /{price.unit_label}
+                      </span>
+                      {!isRange && vals.price_min && (
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {formatRupiah(parseFloat(vals.price_min) || 0)}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )
+                );
               })}
 
-              <Separator />
-
-              {/* Express Info */}
-              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                      Layanan Express (Otomatis)
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                      Dihitung otomatis: Harga Kiloan + 50% biaya tambahan
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-amber-800 dark:text-amber-300">
-                      {formatRupiah(expressPrice)}/kg
-                    </p>
-                    <p className="text-xs text-amber-600 dark:text-amber-500">
-                      = {formatRupiah(parseFloat(editValues['kiloan'] ?? '0') || 0)} + 50%
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {saveMsg && (
-                <p className={`text-sm font-medium ${saveMsg.type === 'success' ? 'text-green-600' : 'text-destructive'}`}>
+                <p
+                  className={`text-sm font-medium ${
+                    saveMsg.type === "success"
+                      ? "text-green-600"
+                      : "text-destructive"
+                  }`}
+                >
                   {saveMsg.text}
                 </p>
               )}
 
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={fetchPrices} disabled={saving}>
+                <Button
+                  variant="outline"
+                  onClick={fetchPrices}
+                  disabled={saving}
+                >
                   <RefreshCw className="size-4 mr-2" />
                   Reset
                 </Button>
-                <Button onClick={handleSave} disabled={saving} className="gap-2">
-                  {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
-                  {saving ? 'Menyimpan...' : 'Simpan Harga'}
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="gap-2"
+                >
+                  {saving ? (
+                    <RefreshCw className="size-4 animate-spin" />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
+                  {saving ? "Menyimpan..." : "Simpan Harga"}
                 </Button>
               </div>
             </>
@@ -167,44 +263,72 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Tabel Harga Contoh</CardTitle>
-          <CardDescription>Estimasi biaya berdasarkan harga saat ini</CardDescription>
+          <CardDescription>
+            Estimasi biaya berdasarkan harga saat ini
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 font-medium text-muted-foreground">Layanan</th>
-                  <th className="text-right py-2 font-medium text-muted-foreground">1</th>
-                  <th className="text-right py-2 font-medium text-muted-foreground">3</th>
-                  <th className="text-right py-2 font-medium text-muted-foreground">5</th>
-                  <th className="text-right py-2 font-medium text-muted-foreground">10</th>
+                  <th className="text-left py-2 font-medium text-muted-foreground">
+                    Layanan
+                  </th>
+                  <th className="text-right py-2 font-medium text-muted-foreground">
+                    1
+                  </th>
+                  <th className="text-right py-2 font-medium text-muted-foreground">
+                    3
+                  </th>
+                  <th className="text-right py-2 font-medium text-muted-foreground">
+                    5
+                  </th>
+                  <th className="text-right py-2 font-medium text-muted-foreground">
+                    10
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {prices.map(p => (
-                  <tr key={p.id} className="border-b last:border-0">
-                    <td className="py-2 font-medium">{SERVICE_INFO[p.service_type]?.label}</td>
-                    {[1, 3, 5, 10].map(qty => (
-                      <td key={qty} className="text-right py-2 text-muted-foreground">
-                        {formatRupiah(p.price_per_unit * qty)}
+                {activePrices
+                  .filter(
+                    (p) =>
+                      p.pricing_type === "per_kg" ||
+                      p.pricing_type === "per_pcs",
+                  )
+                  .map((p) => (
+                    <tr key={p.id} className="border-b last:border-0">
+                      <td className="py-2 font-medium">{p.name}</td>
+                      {[1, 3, 5, 10].map((qty) => (
+                        <td
+                          key={qty}
+                          className="text-right py-2 text-muted-foreground"
+                        >
+                          {formatRupiah(getEffectivePrice(p) * qty)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                {expressPrice > 0 && (
+                  <tr className="bg-amber-50/50 dark:bg-amber-950/10">
+                    <td className="py-2 font-medium text-amber-700 dark:text-amber-400">
+                      Express (+50%)
+                    </td>
+                    {[1, 3, 5, 10].map((qty) => (
+                      <td
+                        key={qty}
+                        className="text-right py-2 text-amber-700 dark:text-amber-400"
+                      >
+                        {formatRupiah(expressPrice * qty)}
                       </td>
                     ))}
                   </tr>
-                ))}
-                <tr className="bg-amber-50/50 dark:bg-amber-950/10">
-                  <td className="py-2 font-medium text-amber-700 dark:text-amber-400">Express</td>
-                  {[1, 3, 5, 10].map(qty => (
-                    <td key={qty} className="text-right py-2 text-amber-700 dark:text-amber-400">
-                      {formatRupiah(expressPrice * qty)}
-                    </td>
-                  ))}
-                </tr>
+                )}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

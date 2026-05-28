@@ -1,9 +1,9 @@
 import * as React from "react";
 import {
-  ShoppingBag,
+  ClipboardList,
   TrendingUp,
-  Clock,
-  AlertTriangle,
+  PackageCheck,
+  ClockAlert,
   WashingMachine,
   ArrowRight,
 } from "lucide-react";
@@ -38,11 +38,12 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { Order } from "@/lib/types";
-import { formatRupiah, SERVICE_TYPE_LABELS } from "@/lib/types";
+import type { Order, Customer, ServicePrice } from "@/lib/types";
+import { formatRupiah, ORDERS, CUSTOMERS, SERVICE } from "@/lib/types";
+import api from "@/lib/api/axios";
 
 interface DashboardStats {
   todayOrders: number;
@@ -58,13 +59,10 @@ interface ChartData {
   revenue: number;
 }
 
-interface DashboardPageProps {
-  onNavigateOrders: () => void;
-}
-
-export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
-  const { profile } = useAuth();
-  const isOwner = profile?.role === "owner";
+export function DashboardPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isOwner = user?.role === "owner";
 
   const [stats, setStats] = React.useState<DashboardStats>({
     todayOrders: 0,
@@ -82,60 +80,90 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
 
   async function fetchDashboardData() {
     setLoading(true);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString();
+    try {
+      const [ordersRes, customersRes, servicesRes] = await Promise.all([
+        api.get(ORDERS),
+        api.get(CUSTOMERS),
+        api.get(SERVICE),
+      ]);
+      const ordersData: any[] = (ordersRes as any).data ?? [];
+      const customersData: Customer[] = (customersRes as any).data ?? [];
+      const servicesData: ServicePrice[] = (servicesRes as any).data ?? [];
 
-    const [ordersRes, recentRes] = await Promise.all([
-      supabase.from("orders").select("*, customer:customers(name, phone)"),
-      supabase
-        .from("orders")
-        .select("*, customer:customers(name, phone)")
-        .order("created_at", { ascending: false })
-        .limit(10),
-    ]);
+      const enriched: Order[] = ordersData.map((o) => ({
+        ...o,
+        quantity: parseFloat(o.quantity) || 0,
+        base_price: parseFloat(o.base_price) || 0,
+        express_surcharge: parseFloat(o.express_surcharge) || 0,
+        total_price: parseFloat(o.total_price) || 0,
+        is_express: Boolean(o.is_express),
+        is_overdue: Boolean(o.is_overdue),
+        needs_weight_label: Boolean(o.needs_weight_label),
+        customer: customersData.find((c) => c.id === o.customer_id),
+        service_price: servicesData.find((s) => s.id === o.service_price_id),
+      }));
 
-    const allOrders: Order[] = ordersRes.data ?? [];
-    const recent: Order[] = recentRes.data ?? [];
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 59, 59, 999);
 
-    const todayOrders = allOrders.filter((o) => o.created_at >= todayStr);
-    const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total_price, 0);
-    const pendingPickup = allOrders.filter((o) => o.status === "ready").length;
-    const overdueOrders = allOrders.filter(
-      (o) => o.is_overdue && o.status !== "picked_up",
-    ).length;
-
-    setStats({
-      todayOrders: todayOrders.length,
-      todayRevenue,
-      pendingPickup,
-      overdueOrders,
-    });
-    setRecentOrders(recent);
-
-    // Build chart data for last 7 days
-    const days: ChartData[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      const next = new Date(d);
-      next.setDate(next.getDate() + 1);
-      const dayOrders = allOrders.filter((o) => {
+      const todayOrdersList = enriched.filter((o) => {
         const t = new Date(o.created_at);
-        return t >= d && t < next;
+        return t >= todayStart && t <= todayEnd;
       });
-      days.push({
-        date: d.toISOString().split("T")[0],
-        label: d.toLocaleDateString("id-ID", {
-          weekday: "short",
-          day: "numeric",
-        }),
-        orders: dayOrders.length,
-        revenue: dayOrders.reduce((s, o) => s + o.total_price, 0),
+
+      setStats({
+        todayOrders: todayOrdersList.length,
+        todayRevenue: todayOrdersList.reduce((s, o) => s + o.total_price, 0),
+        pendingPickup: enriched.filter((o) => o.status === "ready").length,
+        overdueOrders: enriched.filter(
+          (o) => o.is_overdue && o.status !== "picked_up",
+        ).length,
       });
+
+      setRecentOrders(
+        enriched
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime(),
+          )
+          .slice(0, 10),
+      );
+
+      // Build chart data (last 30 days)
+      const days: {
+        date: string;
+        label: string;
+        orders: number;
+        revenue: number;
+      }[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        d.setHours(0, 0, 0, 0);
+        const next = new Date(d);
+        next.setDate(next.getDate() + 1);
+        const dayOrders = enriched.filter((o) => {
+          const t = new Date(o.created_at);
+          return t >= d && t < next;
+        });
+        days.push({
+          date: d.toISOString().split("T")[0],
+          label: d.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "short",
+          }),
+          orders: dayOrders.length,
+          revenue: dayOrders.reduce((s, o) => s + o.total_price, 0),
+        });
+      }
+      setChartData(days);
+    } catch {
+      // silent
     }
-    setChartData(days);
     setLoading(false);
   }
 
@@ -144,7 +172,7 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
   };
 
   const revenueChartConfig = {
-    revenue: { label: "Pendapatan", color: "var(--chart-2)" },
+    revenue: { label: "Pendapatan", color: "var(--chart-1)" },
   };
 
   const statCards = [
@@ -152,9 +180,9 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
       title: "Pesanan Hari Ini",
       value: stats.todayOrders,
       subtitle: "Total transaksi masuk hari ini",
-      icon: ShoppingBag,
-      color: "text-blue-600",
-      bg: "bg-blue-50 dark:bg-blue-950/30",
+      icon: ClipboardList,
+      color: "text-amber-600",
+      bg: "bg-amber-50 dark:bg-amber-950/30",
     },
     ...(isOwner
       ? [
@@ -163,8 +191,8 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
             value: formatRupiah(stats.todayRevenue),
             subtitle: "Total omzet hari ini",
             icon: TrendingUp,
-            color: "text-green-600",
-            bg: "bg-green-50 dark:bg-green-950/30",
+            color: "text-amber-600",
+            bg: "bg-amber-50 dark:bg-amber-950/30",
           },
         ]
       : []),
@@ -172,7 +200,7 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
       title: "Siap Diambil",
       value: stats.pendingPickup,
       subtitle: "Cucian menunggu pengambilan",
-      icon: Clock,
+      icon: PackageCheck,
       color: "text-amber-600",
       bg: "bg-amber-50 dark:bg-amber-950/30",
     },
@@ -180,9 +208,9 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
       title: "Terlambat",
       value: stats.overdueOrders,
       subtitle: "Order belum diambil >30 hari",
-      icon: AlertTriangle,
-      color: "text-red-600",
-      bg: "bg-red-50 dark:bg-red-950/30",
+      icon: ClockAlert,
+      color: "text-amber-600",
+      bg: "bg-amber-50 dark:bg-amber-950/30",
     },
   ];
 
@@ -193,8 +221,8 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Selamat datang, {profile?.name}! Berikut ringkasan operasional
-            Gresik Laundry.
+            Selamat datang, {user?.email}! Berikut ringkasan operasional Gresik
+            Laundry.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -370,7 +398,7 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={onNavigateOrders}
+            onClick={() => navigate("/orders")}
             className="gap-1.5"
           >
             Lihat Semua
@@ -429,7 +457,7 @@ export function DashboardPage({ onNavigateOrders }: DashboardPageProps) {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">
-                        {SERVICE_TYPE_LABELS[order.service_type]}
+                        {order.service_price?.name ?? "-"}
                       </span>
                       {order.is_express && (
                         <span className="ml-1 text-xs text-amber-600 font-medium">
