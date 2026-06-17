@@ -1,3 +1,5 @@
+import api from "./api/axios";
+
 export type UserRole = "owner" | "karyawan";
 
 export type PaymentStatus = "pending" | "lunas" | "cicilan";
@@ -18,7 +20,15 @@ export const REGISTER = `${URL}/auth`;
 export const LOGOUT = `${URL}/auth/current`;
 export const SERVICE = `${URL}/services`;
 export const ORDERS = `${URL}/orders`;
+export const ORDERS_ALL = `${URL}/orders/all`;
+export const ORDERS_BY_STATUS = `${URL}/orders/status`;
 export const CUSTOMERS = `${URL}/customers`;
+export const REFRESH = `${URL}/refresh`;
+export const STATS = `${URL}/dashboard/stats`;
+export const INCOME = `${URL}/dashboard/income?day=`;
+export const INCOME_TEST = `${URL}/dashboard/income?day=30`;
+export const PERCENTAGE_DIFF = `${URL}/orders/percentage`;
+export const ORDERS_COUNT = `${URL}/orders/countorders`;
 
 export type SignOutResponse = {
   message: string;
@@ -54,8 +64,10 @@ export interface Customer {
   id: string;
   name: string;
   phone: string;
+  total_orders: number;
   address: string;
   created_at: string;
+  updated_at: string;
 }
 
 export type CustomerResponse = {
@@ -78,9 +90,9 @@ export type ServicePrice = {
   pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
   price_min: number;
   price_max: number | null;
-  unit_label: string;
-  default_turnaround_hours: number;
-  is_active: number;
+  unit_label: string | "pcs";
+  default_turnaround_hours: number | 48;
+  is_active: number | 1;
   updated_at: string;
 };
 
@@ -88,9 +100,9 @@ export interface Order {
   id: string;
   order_code: string;
   customer_id: string;
-  customer?: Customer;
+  customers?: Customer;
   service_price_id: string;
-  service_price?: ServicePrice;
+  service_prices?: ServicePrice;
   quantity: number;
   is_express: boolean;
   base_price: number;
@@ -99,7 +111,6 @@ export interface Order {
   status: OrderStatus;
   payment_status: PaymentStatus;
   is_overdue: boolean;
-  needs_weight_label: boolean;
   condition_notes: string;
   notes: string;
   estimated_done: string | null;
@@ -107,6 +118,57 @@ export interface Order {
   created_at: string;
   updated_at: string;
   picked_up_at: string | null;
+}
+
+export interface DashboardRecentOrders {
+  id: string;
+  order_code: string;
+  customer_name: string;
+  customer_phone: string;
+  service_name: string;
+  is_express: boolean;
+  service_category: string;
+  quantity: number;
+  total_price: number;
+  status: string;
+  payment_status: string;
+  estimated_done: string;
+  picked_up_at: string;
+  created_at: string;
+}
+
+export interface DashboardStats {
+  todayOrders: number;
+  todayRevenue: number;
+  pendingPickup: number;
+  overdueOrders: number;
+  percentageDiff: number;
+  ordersCount: number;
+}
+
+export interface DashboardStatsResponse {
+  stats: {
+    todayOrders: number;
+    todayRevenue: number;
+    pendingPickup: number;
+    overdueOrders: number;
+  };
+  recentOrders: Order[];
+}
+
+export interface Income {
+  income: number | 0;
+}
+
+export interface Avgday {
+  avg_day: number | 0;
+}
+
+export interface IncomeService {
+  id: string;
+  service_name: string;
+  total_order: number;
+  total_revenue: number;
 }
 
 export interface OrderAuditLog {
@@ -153,6 +215,14 @@ export function formatRupiah(amount: number): string {
   }).format(amount);
 }
 
+export function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(dateStr));
+}
+
 export function generateOrderCode(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -160,3 +230,62 @@ export function generateOrderCode(date: Date): string {
   const rand = Math.floor(Math.random() * 9000) + 1000;
   return `GRS-${year}${month}${day}-${rand}`;
 }
+
+export interface FetchOrdersResult {
+  ordersData: Order[];
+  customersData: Customer[];
+  pricesData: ServicePrice[];
+}
+
+export async function fetchOrdersData(
+  status?: string,
+  date?: string,
+): Promise<FetchOrdersResult> {
+  const params = new URLSearchParams();
+  if (status && status !== "all") {
+    params.set("status", status);
+  }
+  if (date && date !== "all") {
+    params.set("day", date);
+  }
+
+  const queryStr = params.toString();
+  const ordersPromise = queryStr
+    ? api.get(`${ORDERS_BY_STATUS}?${queryStr}`)
+    : api.get(ORDERS_ALL);
+
+  const [ordersRes, serviceRes, customersRes] = await Promise.all([
+    ordersPromise,
+    api.get(SERVICE),
+    api.get(CUSTOMERS),
+  ]);
+
+  const ordersData =
+    ordersRes.data.filter((order: Order): boolean => {
+      return order.customers?.name !== undefined;
+    }) ?? [];
+
+  const customersData = customersRes.data;
+
+  return {
+    ordersData,
+    customersData,
+    pricesData: serviceRes.data,
+  };
+}
+
+export async function handleUpdateStatus(order: Order): Promise<void> {
+  const next = STATUS_NEXT[order.status];
+  if (!next) return;
+  try {
+    await api.put(`${ORDERS}/${order.id}`, { status: next });
+    await fetchOrdersData();
+  } catch {
+    // silent
+  }
+}
+
+export type DataTableProps = {
+  data: Order[];
+  onUpdateStatus: (order: Order) => Promise<void>;
+};

@@ -1,27 +1,19 @@
-import * as React from "react";
-import { Plus, Search, Phone, MapPin, X, Users } from "lucide-react";
+import { DataTable } from "@/components/demo-pages/customer-data-table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { CUSTOMERS, type Customer, type CustomerResponse } from "@/lib/types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { apiSafe } from "@/lib/api/axios";
+import { CUSTOMERS, type Customer, type CustomerResponse } from "@/lib/types";
+import { Plus, Search, X } from "lucide-react";
+import * as React from "react";
 import { toast } from "sonner";
 
 export function CustomersPage() {
@@ -111,8 +103,16 @@ export function CustomersPage() {
   }
 
   const filtered = React.useMemo((): Customer[] => {
-    if (!search) return customers;
+    if (!Array.isArray(customers)) {
+      return [];
+    }
+
+    if (!search) {
+      return customers;
+    }
+
     const q = search.toLowerCase();
+
     return customers.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
@@ -123,20 +123,20 @@ export function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col mx-4 lg:mx-6 gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Pelanggan</h1>
           <p className="text-muted-foreground">Data pelanggan Gresik Laundry</p>
         </div>
-        <Button onClick={() => setShowDialog(true)} className="gap-2 shrink-0">
-          <Plus className="size-4" />
+        <Button onClick={() => setShowDialog(true)}>
+          <Plus />
           Tambah Pelanggan
         </Button>
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
+      <Card className="mx-4 lg:mx-6">
+        <CardContent>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
@@ -158,7 +158,7 @@ export function CustomersPage() {
       </Card>
 
       {/* Summary */}
-      <div className="text-sm text-muted-foreground">
+      <div className="mx-4 lg:mx-6 text-sm text-muted-foreground">
         Menampilkan{" "}
         <span className="font-medium text-foreground">{filtered.length}</span>{" "}
         dari{" "}
@@ -166,76 +166,7 @@ export function CustomersPage() {
         pelanggan
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-6 space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full" />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Users className="size-12 text-muted-foreground/40 mb-3" />
-              <p className="text-muted-foreground font-medium">
-                Tidak ada pelanggan
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {search ? "Coba kata kunci lain" : "Tambah pelanggan pertama"}
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>No</TableHead>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Nomor HP</TableHead>
-                  <TableHead>Alamat</TableHead>
-                  <TableHead>Bergabung</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c, i) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {i + 1}
-                    </TableCell>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>
-                      <a
-                        href={`tel:${c.phone}`}
-                        className="flex items-center justify-center gap-1 text-sm hover:underline text-foreground"
-                      >
-                        <Phone className="size-3 text-muted-foreground" />
-                        {c.phone}
-                      </a>
-                    </TableCell>
-                    <TableCell>
-                      {c.address ? (
-                        <span className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                          <MapPin className="size-3 shrink-0" />
-                          {c.address}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(c.created_at).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <DataTable data={customers} />
 
       {/* Add Customer Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>

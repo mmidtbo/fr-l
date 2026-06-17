@@ -1,21 +1,17 @@
-import * as React from "react";
-import { TrendingUp, ShoppingBag, Users, BarChart3 } from "lucide-react";
+import { DataTable } from "@/components/demo-pages/report-data-table";
+import { SectionCards } from "@/components/section-cards-reports";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import {
   Select,
   SelectContent,
@@ -23,23 +19,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import api from "@/lib/api/axios";
+import type { Avgday, Income, IncomeService, Order } from "@/lib/types";
+import { formatRupiah, ORDERS_ALL, URL } from "@/lib/types";
+import * as React from "react";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
   XAxis,
   YAxis,
-  CartesianGrid,
-  LineChart,
-  Line,
 } from "recharts";
-import type { Order, Customer, ServicePrice } from "@/lib/types";
-import { formatRupiah, ORDERS, CUSTOMERS, SERVICE } from "@/lib/types";
-import api from "@/lib/api/axios";
 
 interface DailySummary {
   date: string;
@@ -52,36 +45,37 @@ export function ReportsPage() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [period, setPeriod] = React.useState("30");
+  const [income, setIncome] = React.useState<Income>();
+  const [avgday, setAvgday] = React.useState<Avgday>();
+  const [incomeservice, setIncomeService] = React.useState<IncomeService[]>([]);
 
-  React.useEffect(() => {
+  React.useEffect((): void => {
     fetchData();
   }, [period]);
 
-  async function fetchData() {
+  async function fetchData(): Promise<void> {
     setLoading(true);
     try {
-      const [ordersRes, customersRes, servicesRes] = await Promise.all([
-        api.get(ORDERS),
-        api.get(CUSTOMERS),
-        api.get(SERVICE),
-      ]);
-      const ordersData: any[] = (ordersRes as any).data ?? [];
-      const customersData: Customer[] = (customersRes as any).data ?? [];
-      const servicesData: ServicePrice[] = (servicesRes as any).data ?? [];
+      const [ordersRes, incomeRes, avgRes, incomeServiceRes] =
+        await Promise.all([
+          api.get(ORDERS_ALL),
+          api.get(`${URL}/dashboard/income?day=${period}`),
+          api.get(`${URL}/dashboard/avgday?day=${period}`),
+          api.get(`${URL}/dashboard/incomeservice`),
+        ]);
+      const ordersData: Order[] =
+        ordersRes.data.filter((order: Order): boolean => {
+          return order.customers?.name !== undefined;
+        }) ?? [];
+      const incomeData = incomeRes.data.income;
+      const avgdayData = avgRes.data.avg_day;
+      const incomeServiceData = incomeServiceRes.data;
+      console.log(incomeServiceData.length);
 
-      const enriched: Order[] = ordersData.map((o) => ({
-        ...o,
-        quantity: parseFloat(o.quantity) || 0,
-        base_price: parseFloat(o.base_price) || 0,
-        express_surcharge: parseFloat(o.express_surcharge) || 0,
-        total_price: parseFloat(o.total_price) || 0,
-        is_express: Boolean(o.is_express),
-        is_overdue: Boolean(o.is_overdue),
-        needs_weight_label: Boolean(o.needs_weight_label),
-        customer: customersData.find((c) => c.id === o.customer_id),
-        service_price: servicesData.find((s) => s.id === o.service_price_id),
-      }));
-      setOrders(enriched);
+      setOrders(ordersData);
+      setIncome(incomeData);
+      setAvgday(avgdayData);
+      setIncomeService(incomeServiceData);
     } catch {
       // silent
     }
@@ -97,7 +91,7 @@ export function ReportsPage() {
       d.setHours(0, 0, 0, 0);
       const next = new Date(d);
       next.setDate(next.getDate() + 1);
-      const dayOrders = orders.filter((o) => {
+      const dayOrders = orders.filter((o: Order): boolean => {
         const t = new Date(o.created_at);
         return t >= d && t < next;
       });
@@ -114,31 +108,14 @@ export function ReportsPage() {
     return days;
   }, [orders, period]);
 
-  const totalRevenue = orders.reduce((s, o) => s + o.total_price, 0);
-  const avgPerDay = orders.length > 0 ? totalRevenue / parseInt(period) : 0;
+  const totalRevenue = Number(income == undefined ? 0 : income);
+  const avgPerDay = orders.length > 0 ? Number(avgday) : 0;
   const uniqueCustomers = new Set(orders.map((o) => o.customer_id)).size;
 
-  const serviceBreakdown = React.useMemo(() => {
-    const groups: Record<
-      string,
-      { name: string; count: number; revenue: number }
-    > = {};
-    orders.forEach((o) => {
-      const key = o.service_price_id;
-      if (!groups[key]) {
-        groups[key] = {
-          name: o.service_price?.name ?? key,
-          count: 0,
-          revenue: 0,
-        };
-      }
-      groups[key].count++;
-      groups[key].revenue += o.total_price;
-    });
-    return Object.entries(groups)
-      .map(([key, data]) => ({ type: key, ...data }))
-      .sort((a, b) => b.revenue - a.revenue);
-  }, [orders]);
+  const serviceBreakdown: IncomeService[] = incomeservice!;
+  if (!serviceBreakdown) {
+    return;
+  }
 
   const chartConfig = {
     revenue: { label: "Pendapatan", color: "var(--chart-1)" },
@@ -153,7 +130,7 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col mx-4 lg:mx-6 gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Laporan</h1>
           <p className="text-muted-foreground">
@@ -174,205 +151,103 @@ export function ReportsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          {
-            label: "Total Pendapatan",
-            value: loading ? null : formatRupiah(totalRevenue),
-            sub: `dalam ${period} hari terakhir`,
-            icon: TrendingUp,
-            color: "text-amber-600",
-            bg: "bg-amber-50 dark:bg-amber-950/30",
-          },
-          {
-            label: "Total Pesanan",
-            value: loading ? null : orders.length.toString(),
-            sub: "transaksi masuk",
-            icon: ShoppingBag,
-            color: "text-amber-600",
-            bg: "bg-amber-50 dark:bg-amber-950/30",
-          },
-          {
-            label: "Rata-rata/Hari",
-            value: loading ? null : formatRupiah(Math.round(avgPerDay)),
-            sub: "pendapatan harian",
-            icon: BarChart3,
-            color: "text-amber-600",
-            bg: "bg-amber-50 dark:bg-amber-950/30",
-          },
-          {
-            label: "Pelanggan Aktif",
-            value: loading ? null : uniqueCustomers.toString(),
-            sub: "pelanggan unik",
-            icon: Users,
-            color: "text-amber-600",
-            bg: "bg-amber-50 dark:bg-amber-950/30",
-          },
-        ].map((card) => (
-          <Card key={card.label}>
-            <CardContent className="pt-5">
-              {loading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-7 w-20" />
-                </div>
-              ) : (
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      {card.label}
-                    </p>
-                    <p className="text-xl font-bold mt-1">{card.value}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {card.sub}
-                    </p>
-                  </div>
-                  <div className={`rounded-lg p-2 ${card.bg}`}>
-                    <card.icon className={`size-4 ${card.color}`} />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <SectionCards
+        totalRevenue={totalRevenue}
+        orderslength={orders.length}
+        avgPerDay={avgPerDay}
+        period={period}
+        uniqueCustomers={uniqueCustomers}
+      />
 
       {/* Revenue Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Tren Pendapatan Harian</CardTitle>
-          <CardDescription>
-            Total omzet per hari dalam periode yang dipilih
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <Skeleton className="h-56 w-full" />
-          ) : (
-            <ChartContainer config={chartConfig} className="h-56 w-full">
-              <LineChart data={chartData} accessibilityLayer>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 10 }}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 10 }}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}rb`}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value) => [formatRupiah(Number(value))]}
-                    />
-                  }
-                />
-                <Line
-                  dataKey="revenue"
-                  stroke="var(--color-revenue)"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              </LineChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Orders Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Volume Pesanan Harian</CardTitle>
-          <CardDescription>Jumlah transaksi masuk per hari</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <Skeleton className="h-48 w-full" />
-          ) : (
-            <ChartContainer config={chartConfig} className="h-48 w-full">
-              <BarChart data={chartData} accessibilityLayer>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11 }}
-                  allowDecimals={false}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar
-                  dataKey="orders"
-                  fill="var(--color-orders)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
+      <div className="px-4 lg:px-6 space-y-6">
+        <Card className="@container/card">
+          <CardHeader>
+            <CardTitle className="text-base">Tren Pendapatan Harian</CardTitle>
+            <CardDescription>
+              Total omzet per hari dalam periode yang dipilih
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+            {loading ? (
+              <Skeleton className="h-56 w-full" />
+            ) : (
+              <ChartContainer config={chartConfig} className="h-56 w-full">
+                <LineChart data={chartData} accessibilityLayer>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 10 }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}rb`}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value) => [formatRupiah(Number(value))]}
+                      />
+                    }
+                  />
+                  <Line
+                    dataKey="revenue"
+                    stroke="var(--color-revenue)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Orders Chart */}
+        <Card className="@container/card">
+          <CardHeader>
+            <CardTitle className="text-base">Volume Pesanan Harian</CardTitle>
+            <CardDescription>Jumlah transaksi masuk per hari</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-48 w-full" />
+            ) : (
+              <ChartContainer config={chartConfig} className="h-48 w-full">
+                <BarChart data={chartData} accessibilityLayer>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11 }}
+                    allowDecimals={false}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar
+                    dataKey="orders"
+                    fill="var(--color-orders)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Service Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Breakdown per Jenis Layanan
-          </CardTitle>
-          <CardDescription>
-            Perbandingan pendapatan dan volume per layanan
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-6 space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : serviceBreakdown.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground text-sm">
-              Belum ada data untuk periode ini
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Jenis Layanan</TableHead>
-                  <TableHead className="text-right">Jumlah Pesanan</TableHead>
-                  <TableHead className="text-right">Total Pendapatan</TableHead>
-                  <TableHead className="text-right">% dari Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {serviceBreakdown.map((row) => (
-                  <TableRow key={row.type}>
-                    <TableCell className="font-medium">{row.name}</TableCell>
-                    <TableCell className="text-right">{row.count}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatRupiah(row.revenue)}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {totalRevenue > 0
-                        ? ((row.revenue / totalRevenue) * 100).toFixed(1)
-                        : 0}
-                      %
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <DataTable data={serviceBreakdown} totalRevenue={totalRevenue} />
     </div>
   );
 }

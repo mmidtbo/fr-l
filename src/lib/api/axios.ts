@@ -1,4 +1,5 @@
 import axios, { type AxiosResponse } from "axios";
+import { REFRESH } from "../types";
 
 export type ApiResult<T> =
   | { data: T; error: null }
@@ -13,22 +14,36 @@ const api = axios.create({
   withCredentials: true,
 });
 
+const refreshApi = axios.create({
+  baseURL: import.meta.env.VITE_URL,
+  withCredentials: true,
+});
+
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     console.log("interceptors response");
     return response.data;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
     // Handle 401: token invalid/expired
-    if (error.response?.status === 401) {
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("user");
-      // window.location.href = "/login";
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await refreshApi.get(REFRESH);
+
+        return api(originalRequest);
+      } catch {
+        window.location.href = "/login";
+      }
     }
 
     // Extract pesan error
     const message =
       error.response?.data?.message || error.message || "Terjadi kesalahan";
+
     return Promise.reject(new Error(message));
   },
 );

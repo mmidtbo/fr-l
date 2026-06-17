@@ -32,9 +32,9 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div>
       <div
-        className="print:block border rounded-lg p-6 bg-white text-foreground text-sm"
+        className="print:block border rounded-lg p-6 bg-white dark:bg-slate-900 text-foreground text-sm"
         id="receipt-content"
       >
         {/* Header */}
@@ -66,15 +66,11 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         <div className="my-3 space-y-1">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Pelanggan</span>
-            <span className="font-medium">
-              {order.customer?.name ?? "-"}
-            </span>
+            <span className="font-medium">{order.customers?.name ?? "-"}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">No. HP</span>
-            <span className="font-medium">
-              {order.customer?.phone ?? "-"}
-            </span>
+            <span className="font-medium">{order.customers?.phone ?? "-"}</span>
           </div>
         </div>
 
@@ -85,20 +81,18 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
           <div className="flex justify-between">
             <span className="text-muted-foreground">Jenis Layanan</span>
             <span className="font-medium">
-              {order.service_price?.name ?? "-"}
+              {order.service_prices?.name ?? "-"}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Jumlah</span>
             <span className="font-medium">
-              {order.quantity} {order.service_price?.unit_label ?? ""}
+              {order.quantity} {order.service_prices?.unit_label ?? ""}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Status</span>
-            <span className="font-medium">
-              {STATUS_LABELS[order.status]}
-            </span>
+            <span className="font-medium">{STATUS_LABELS[order.status]}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Pembayaran</span>
@@ -112,7 +106,7 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
           </div>
           {order.is_express && (
             <div className="flex justify-between text-amber-600">
-              <span>Express (+50%)</span>
+              <span>Express (+100%)</span>
               <span>+{formatRupiah(order.express_surcharge)}</span>
             </div>
           )}
@@ -168,24 +162,25 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
         {/* Disclaimer */}
         <div className="mt-3 text-center text-xs text-muted-foreground space-y-1">
           <p className="font-medium">Catatan Penting</p>
-          <p>Mohon simpan nota ini sebagai bukti pengambilan.</p>
-          <p>
-            Gresik Laundry tidak bertanggung jawab atas kerusakan yang sudah
+          <p className="text-start">
+            1. Mohon simpan nota ini sebagai bukti pengambilan.
+          </p>
+          <p className="text-start">
+            2. Gresik Laundry tidak bertanggung jawab atas kerusakan yang sudah
             ada sebelumnya.
           </p>
-          <p>
-            Pakaian yang tidak diambil lebih dari 30 hari menjadi tanggung jawab
-            pelanggan.
-          </p>
-          <p className="font-medium mt-2">
+          {/* <p> */}
+          {/*   Pakaian yang tidak diambil lebih dari 30 hari menjadi tanggung jawab */}
+          {/*   pelanggan. */}
+          {/* </p> */}
+          <p className="font-medium mt-4">
             Terima kasih sudah mempercayakan cucian Anda kepada kami!
           </p>
         </div>
       </div>
 
-      <Button onClick={handlePrint} className="w-full gap-2">
+      <Button onClick={handlePrint} className="w-full gap-2 mt-4">
         <Printer className="size-4" />
-        Cetak Nota
       </Button>
     </div>
   );

@@ -1,17 +1,15 @@
-import * as React from "react";
-import {
-  Plus,
-  Search,
-  Receipt,
-  ChevronRight,
-  Weight,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { DataTable } from "@/components/demo-pages/order-data-table";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -19,52 +17,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { StatusBadge } from "@/components/StatusBadge";
-import { OrderReceipt } from "@/components/OrderReceipt";
-import type { Order, Customer, ServicePrice, PaymentStatus } from "@/lib/types";
-import {
-  CUSTOMERS,
-  ORDERS,
-  SERVICE,
-  STATUS_LABELS,
-  STATUS_NEXT,
-  PAYMENT_LABELS,
-  formatRupiah,
-} from "@/lib/types";
 import api from "@/lib/api/axios";
-
-const STATUS_TABS: { value: string; label: string }[] = [
-  { value: "all", label: "Semua" },
-  { value: "received", label: "Diterima" },
-  { value: "proses", label: "Diproses" },
-  { value: "cuci", label: "Dicuci" },
-  { value: "jemur", label: "Dijemur" },
-  { value: "setrika", label: "Disetrika" },
-  { value: "ready", label: "Siap Diambil" },
-  { value: "picked_up", label: "Sudah Diambil" },
-];
+import type { Customer, Order, PaymentStatus, ServicePrice } from "@/lib/types";
+import { CUSTOMERS, ORDERS, STATUS_NEXT, fetchOrdersData } from "@/lib/types";
+import { Plus, RefreshCw, Search, X } from "lucide-react";
+import * as React from "react";
 
 export function OrdersPage() {
   const { user } = useAuth();
@@ -80,8 +41,6 @@ export function OrdersPage() {
   const [dateFilter, setDateFilter] = React.useState("all");
 
   const [showNew, setShowNew] = React.useState(false);
-  const [showReceipt, setShowReceipt] = React.useState(false);
-  const [selectedOrder, setSelectedOrder] = React.useState<Order | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
   // New order form
@@ -103,39 +62,39 @@ export function OrdersPage() {
 
   React.useEffect(() => {
     fetchAll();
-  }, []);
+  }, [statusFilter, dateFilter]);
 
-  async function fetchAll() {
+  async function fetchAll(): Promise<void> {
     setLoading(true);
     try {
-      const [ordersRes, customersRes, servicesRes] = await Promise.all([
-        api.get(ORDERS),
-        api.get(CUSTOMERS),
-        api.get(SERVICE),
-      ]);
-      const ordersData: Order[] = ordersRes.data ?? [];
-      const customersData: Customer[] = customersRes.data ?? [];
-      const servicesData: ServicePrice[] = servicesRes.data ?? [];
-
-      const enriched: Order[] = ordersData.map((o) => ({
-        ...o,
-        quantity: Number(o.quantity) || 0,
-        base_price: Number(o.base_price) || 0,
-        express_surcharge: Number(o.express_surcharge) || 0,
-        total_price: Number(o.total_price) || 0,
-        is_express: Boolean(o.is_express),
-        is_overdue: Boolean(o.is_overdue),
-        needs_weight_label: Boolean(o.needs_weight_label),
-        customer: customersData.find((c) => c.id === o.customer_id),
-        service_price: servicesData.find((s) => s.id === o.service_price_id),
-      }));
-      setOrders(enriched);
+      const { ordersData, customersData, pricesData } = await fetchOrdersData(
+        statusFilter,
+        dateFilter,
+      );
+      setOrders(ordersData);
       setCustomers(customersData);
-      setPrices(servicesData.filter((s) => s.is_active));
-    } catch {
-      // silent
+      setPrices(pricesData);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  }
+
+  async function onUpdateStatus(order: Order) {
+    const next = STATUS_NEXT[order.status];
+
+    if (!next) return;
+
+    try {
+      await api.put(`${ORDERS}/${order.id}`, {
+        status: next,
+      });
+
+      await fetchAll();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   const selectedService = React.useMemo(
@@ -184,7 +143,7 @@ export function OrdersPage() {
         customer_id: custId,
         service_price_id: selectedServicePriceId,
         quantity: qty,
-        is_express: isExpress ? 1 : 0,
+        is_express: isExpress ? true : false,
         condition_notes: conditionNotes,
       });
 
@@ -195,17 +154,6 @@ export function OrdersPage() {
       setFormError(err.message || "Gagal menyimpan pesanan.");
     }
     setSubmitting(false);
-  }
-
-  async function handleUpdateStatus(order: Order) {
-    const next = STATUS_NEXT[order.status];
-    if (!next) return;
-    try {
-      await api.put(`${ORDERS}/${order.id}`, { status: next });
-      await fetchAll();
-    } catch {
-      // silent
-    }
   }
 
   function resetForm() {
@@ -224,40 +172,22 @@ export function OrdersPage() {
 
   const filteredOrders = React.useMemo(() => {
     let result = orders;
-    if (statusFilter !== "all")
-      result = result.filter((o) => o.status === statusFilter);
-    if (dateFilter !== "all") {
-      const now = new Date();
-      const cutoff = new Date(now);
-      if (dateFilter === "today") cutoff.setHours(0, 0, 0, 0);
-      else if (dateFilter === "week") cutoff.setDate(cutoff.getDate() - 7);
-      else if (dateFilter === "month") cutoff.setDate(cutoff.getDate() - 30);
-      result = result.filter((o) => new Date(o.created_at) >= cutoff);
-    }
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
         (o) =>
           o.order_code.toLowerCase().includes(q) ||
-          o.customer?.name?.toLowerCase().includes(q) ||
-          o.customer?.phone?.includes(q),
+          o.customers?.name?.toLowerCase().includes(q) ||
+          o.customers?.phone?.includes(q),
       );
     }
     return result;
-  }, [orders, statusFilter, dateFilter, search]);
-
-  const statusCounts = React.useMemo(() => {
-    const counts: Record<string, number> = { all: orders.length };
-    orders.forEach((o) => {
-      counts[o.status] = (counts[o.status] ?? 0) + 1;
-    });
-    return counts;
-  }, [orders]);
+  }, [orders, dateFilter, search]);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col mx-4 lg:mx-6 gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Pesanan</h1>
           <p className="text-muted-foreground">
@@ -269,16 +199,14 @@ export function OrdersPage() {
             resetForm();
             setShowNew(true);
           }}
-          className="gap-2 shrink-0"
         >
-          <Plus className="size-4" />
+          <Plus />
           Pesanan Baru
         </Button>
       </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
+      {/* Filters day */}
+      <Card className="mx-4 lg:mx-6">
+        <CardContent>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -303,9 +231,9 @@ export function OrdersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Waktu</SelectItem>
-                <SelectItem value="today">Hari Ini</SelectItem>
-                <SelectItem value="week">7 Hari Terakhir</SelectItem>
-                <SelectItem value="month">30 Hari Terakhir</SelectItem>
+                <SelectItem value="1">Hari Ini</SelectItem>
+                <SelectItem value="7">7 Hari Terakhir</SelectItem>
+                <SelectItem value="30">30 Hari Terakhir</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -319,172 +247,7 @@ export function OrdersPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Status Tabs */}
-      <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <TabsList className="flex-wrap h-auto gap-1 bg-muted p-1">
-          {STATUS_TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
-              {tab.label}
-              {statusCounts[tab.value] !== undefined && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs px-1.5 py-0 h-4 min-w-4"
-                >
-                  {statusCounts[tab.value]}
-                </Badge>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      {/* Orders Table */}
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-6 space-y-3">
-              {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full" />
-              ))}
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Search className="size-12 text-muted-foreground/40 mb-3" />
-              <p className="text-muted-foreground font-medium">
-                Tidak ada pesanan ditemukan
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Coba ubah filter atau tambah pesanan baru
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Kode Order</TableHead>
-                    <TableHead>Pelanggan</TableHead>
-                    <TableHead>Layanan</TableHead>
-                    <TableHead>Jumlah</TableHead>
-                    {isOwner && (
-                      <TableHead className="text-center">Total</TableHead>
-                    )}
-                    <TableHead>Status</TableHead>
-                    {isOwner && (
-                      <TableHead className="text-center">Bayar</TableHead>
-                    )}
-                    <TableHead>Tanggal Masuk</TableHead>
-                    <TableHead className="text-center">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow
-                      key={order.id}
-                      className={
-                        order.is_overdue && order.status !== "picked_up"
-                          ? "bg-red-50/50 dark:bg-red-950/10"
-                          : ""
-                      }
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 justify-center">
-                          <span className="font-mono text-sm font-semibold">
-                            {order.order_code}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-sm">
-                            {order.customer?.name ?? "-"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {order.customer?.phone ?? "-"}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">
-                          {order.service_price?.name ?? "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {order.quantity} {order.service_price?.unit_label ?? ""}
-                      </TableCell>
-                      {isOwner && (
-                        <TableCell className="text-center font-medium text-sm">
-                          {formatRupiah(order.total_price)}
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        <StatusBadge
-                          status={order.status}
-                          isOverdue={order.is_overdue}
-                        />
-                      </TableCell>
-                      {isOwner && (
-                        <TableCell className="text-center">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              order.payment_status === "lunas"
-                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                : order.payment_status === "cicilan"
-                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                  : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {PAYMENT_LABELS[order.payment_status]}
-                          </span>
-                        </TableCell>
-                      )}
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString(
-                          "id-ID",
-                          {
-                            day: "numeric",
-                            month: "short",
-                            year: "2-digit",
-                          },
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setShowReceipt(true);
-                            }}
-                            title="Lihat Nota"
-                          >
-                            <Receipt className="size-3.5" />
-                          </Button>
-                          {STATUS_NEXT[order.status] && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1 text-xs h-7"
-                              onClick={() => handleUpdateStatus(order)}
-                            >
-                              {STATUS_LABELS[STATUS_NEXT[order.status]!]}
-                              <ChevronRight className="size-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* New Order Dialog */}
+      {/* Dialog orders*/}
       <Dialog
         open={showNew}
         onOpenChange={(open) => {
@@ -492,7 +255,7 @@ export function OrdersPage() {
           setShowNew(open);
         }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Pesanan Baru</DialogTitle>
           </DialogHeader>
@@ -689,16 +452,12 @@ export function OrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Receipt Dialog */}
-      <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nota Digital</DialogTitle>
-          </DialogHeader>
-          {selectedOrder && <OrderReceipt order={selectedOrder} />}
-        </DialogContent>
-      </Dialog>
+      <DataTable
+        data={filteredOrders}
+        onUpdateStatus={onUpdateStatus}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+      />
     </div>
   );
 }

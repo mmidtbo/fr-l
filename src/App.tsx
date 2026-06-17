@@ -1,29 +1,16 @@
-import {
-  SidebarProvider,
-  SidebarTrigger,
-  SidebarInset,
-} from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/hooks/useAuth";
-import { AppSidebar } from "@/components/AppSidebar";
 import { LoginPage } from "@/pages/LoginPage";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { OrdersPage } from "@/pages/OrdersPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { CustomersPage } from "@/pages/CustomersPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
-import { Route, Routes, Outlet, Navigate, useLocation } from "react-router-dom";
-import { ModeToggle } from "@/components/mode-toggle";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/orders": "Pesanan",
-  "/customers": "Pelanggan",
-  "/reports": "Laporan",
-  "/settings": "Pengaturan",
-};
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { AppSidebar } from "@/components/AppSidebar";
+import { OrdersPage } from "@/pages/OrdersPage";
+import { SiteHeader } from "@/components/taskbar-demo/site-header";
 
 function RequireAuth() {
   const { user } = useAuth();
@@ -37,25 +24,26 @@ function RequireAuth() {
 }
 
 function AppLayout() {
-  const location = useLocation();
-
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 sticky top-0 bg-background z-10">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="h-4" />
-          <h2 className="text-sm font-medium text-foreground">
-            {PAGE_TITLES[location.pathname] ?? "Dashboard"}
-          </h2>
-          <div className="ml-auto">
-            <ModeToggle />
+        <SiteHeader />
+
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              <Outlet />
+            </div>
           </div>
-        </header>
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
