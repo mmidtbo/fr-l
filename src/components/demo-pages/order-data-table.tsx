@@ -26,6 +26,7 @@ import {
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
+  type PaginationState,
   type Row,
   type SortingState,
   type VisibilityState,
@@ -67,8 +68,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { STATUS_LABELS, STATUS_NEXT } from "@/lib/types";
 import {
+  fetchOrdersData,
+  formatDate,
+  formatRupiah,
+  STATUS_LABELS,
+  STATUS_NEXT,
+} from "@/lib/types";
+import {
+  IconCash,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -86,33 +94,21 @@ import { OrderReceipt } from "../OrderReceipt";
 export const schema = z.object({
   id: z.string(),
   order_code: z.string(),
-  customer_id: z.string(),
   customers: z.object({
     id: z.string(),
     name: z.string(),
     phone: z.string(),
-    total_orders: z.number(),
-    address: z.string(),
-    created_at: z.string(),
-    updated_at: z.string(),
   }),
-  service_price_id: z.string(),
   service_prices: z.object({
     id: z.string(),
     name: z.string(),
-    category: z.enum(["basic_wash", "full_service", "ironing", "item_based"]),
     pricing_type: z.enum(["per_kg", "per_pcs", "fixed", "range"]),
-    price_min: z.number(),
-    price_max: z.number().nullable(),
+    price_min: z.string(),
+    price_max: z.string().nullable(),
     unit_label: z.string().default("pcs"),
-    default_turnaround_hours: z.number().default(48),
-    is_active: z.number().default(1),
-    updated_at: z.string(),
   }),
   quantity: z.number(),
-  is_express: z.boolean(),
-  base_price: z.number(),
-  express_surcharge: z.number(),
+  is_express: z.boolean().nullable(),
   total_price: z.number(),
   status: z.enum([
     "received",
@@ -124,13 +120,12 @@ export const schema = z.object({
     "picked_up",
   ]),
   payment_status: z.enum(["pending", "lunas", "cicilan"]),
-  is_overdue: z.boolean(),
+  estimated_done: z.string().nullable(),
+  base_price: z.number(),
+  express_surcharge: z.number(),
+  created_at: z.string(),
   condition_notes: z.string(),
   notes: z.string(),
-  estimated_done: z.string().nullable(),
-  created_by: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
   picked_up_at: z.string().nullable(),
 });
 
@@ -151,22 +146,6 @@ const paymentLabel: Record<string, string> = {
   belum: "Belum",
   cicilan: "cicilan",
 };
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "-";
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(dateStr));
-}
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(price);
-}
 
 function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
@@ -198,6 +177,11 @@ type DataTableProps = {
   onUpdateStatus: (order: Order) => Promise<void>;
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
+  pagination: PaginationState;
+  setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
+  metadata: any;
+  userId?: string;
+  onPaymentSuccess?: () => void;
 };
 
 export function DataTable({
@@ -205,6 +189,11 @@ export function DataTable({
   onUpdateStatus,
   statusFilter,
   onStatusFilterChange,
+  pagination,
+  setPagination,
+  metadata,
+  userId,
+  onPaymentSuccess,
 }: DataTableProps) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [showReceipt, setShowReceipt] = React.useState(false);
@@ -214,11 +203,20 @@ export function DataTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
   );
+
+  console.log(metadata);
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [pagination, setPagination] = React.useState({
-    pageIndex: 0,
-    pageSize: 10,
-  });
+  React.useEffect(() => {
+    getOrders();
+  }, [pagination.pageIndex, pagination.pageSize]);
+
+  async function getOrders() {
+    const response = await fetchOrdersData(
+      pagination.pageIndex + 1,
+      pagination.pageSize,
+    );
+    return response.ordersData;
+  }
 
   const sortableId = React.useId();
   const sensors = useSensors(
@@ -311,7 +309,7 @@ export function DataTable({
       header: "Total",
       cell: ({ row }) => (
         <div className="font-medium tabular-nums">
-          {formatPrice(row.original.total_price)}
+          {formatRupiah(row.original.total_price)}
         </div>
       ),
     },
@@ -353,11 +351,23 @@ export function DataTable({
     {
       accessorKey: "estimated_done",
       header: "Estimasi Selesai",
-      cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground">
-          {formatDate(row.original.estimated_done)}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const s = row.original.status;
+        const date =
+          s === "picked_up"
+            ? row.original.picked_up_at
+            : row.original.estimated_done;
+        return (
+          <div className="text-sm text-muted-foreground">
+            {formatDate(date)}
+            {s === "picked_up" && (
+              <div className="text-[11px] text-muted-foreground/60">
+                Diambil
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "nota",
@@ -372,24 +382,19 @@ export function DataTable({
                 setSelectedOrder({
                   id: row.original.id,
                   order_code: row.original.order_code,
-                  customer_id: row.original.customer_id,
                   customers: row.original.customers,
-                  service_price_id: row.original.service_price_id,
                   service_prices: row.original.service_prices,
                   quantity: row.original.quantity,
                   is_express: row.original.is_express,
-                  base_price: row.original.base_price,
-                  express_surcharge: row.original.express_surcharge,
                   total_price: row.original.total_price,
                   status: row.original.status,
                   payment_status: row.original.payment_status,
-                  is_overdue: row.original.is_overdue,
+                  estimated_done: row.original.estimated_done,
+                  base_price: row.original.base_price,
+                  express_surcharge: row.original.express_surcharge,
+                  created_at: row.original.created_at,
                   condition_notes: row.original.condition_notes,
                   notes: row.original.notes,
-                  estimated_done: row.original.estimated_done,
-                  created_by: row.original.created_by,
-                  created_at: row.original.created_at,
-                  updated_at: row.original.updated_at,
                   picked_up_at: row.original.picked_up_at,
                 });
                 setShowReceipt(true);
@@ -409,6 +414,21 @@ export function DataTable({
                 <IconChevronRight className="size-3" />
               </Button>
             )}
+            {!STATUS_NEXT[row.original.status] &&
+              row.original.payment_status !== "lunas" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs h-7"
+                  onClick={() => {
+                    setSelectedOrder({ ...row.original });
+                    setShowReceipt(true);
+                  }}
+                >
+                  <IconCash className="size-3" />
+                  Bayar
+                </Button>
+              )}
           </div>
         </div>
       ),
@@ -441,6 +461,8 @@ export function DataTable({
   const table = useReactTable({
     data,
     columns,
+    manualPagination: true,
+    pageCount: Math.ceil((metadata?.total ?? 0) / pagination.pageSize),
     state: {
       sorting,
       columnVisibility,
@@ -681,11 +703,20 @@ export function DataTable({
 
       {/* Receipt Dialog */}
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-        <DialogContent className="max-w-md md:max-w-md lg:max-w-md overflow-y-auto">
+        <DialogContent className="sm:max-w-sm max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle></DialogTitle>
           </DialogHeader>
-          {selectedOrder && <OrderReceipt order={selectedOrder} />}
+          {selectedOrder && (
+            <OrderReceipt
+              order={selectedOrder}
+              userId={userId}
+              onPaymentSuccess={() => {
+                setShowReceipt(false);
+                onPaymentSuccess?.();
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>

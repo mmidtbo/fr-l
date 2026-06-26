@@ -11,16 +11,30 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiSafe } from "@/lib/api/axios";
-import { CUSTOMERS, type Customer, type CustomerResponse } from "@/lib/types";
+import {
+  CUSTOMERS,
+  CustomersPaginationrequest,
+  type CustomerMetadata,
+  type CustomerResponse,
+  type CustomersRaw,
+} from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Search, X } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 
 export function CustomersPage() {
-  const [customers, setCustomers] = React.useState<Customer[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
   const [search, setSearch] = React.useState("");
   const [showDialog, setShowDialog] = React.useState(false);
+  const [metadata_first, setMetadataFirst] = React.useState<CustomerMetadata>({
+    page: 0,
+    take: 0,
+    total: 0,
+  });
 
   const [name, setName] = React.useState("");
   const [phone, setPhone] = React.useState("");
@@ -28,17 +42,41 @@ export function CustomersPage() {
   const [formError, setFormError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
-  React.useEffect((): void => {
-    fetchCustomers();
-  }, []);
+  const customers = useQuery({
+    queryKey: ["customers", pagination.pageIndex],
+    queryFn: async (): Promise<CustomersRaw> => {
+      const [response] = await Promise.all([
+        CustomersPaginationrequest(
+          pagination.pageIndex + 1,
+          pagination.pageSize,
+        ),
+      ]);
 
-  async function fetchCustomers(): Promise<void> {
-    setLoading(true);
-    const raw_data = await apiSafe.get(CUSTOMERS);
-    const customers = (raw_data as any).data.data;
-    setCustomers(customers ?? []);
-    setLoading(false);
-  }
+      let data: CustomersRaw = {
+        data: [],
+        page: 0,
+        take: 0,
+        total: 0,
+        status_code: 0,
+      };
+
+      if (response?.data) {
+        data = {
+          data: response.data.data,
+          page: response.data.page,
+          take: response.data.take,
+          total: response.data.total,
+          status_code: response.data.status_code,
+        };
+      }
+      setMetadataFirst({
+        page: data.page,
+        take: data.take,
+        total: data.total,
+      });
+      return data;
+    },
+  });
 
   async function handleSubmit(e: React.ChangeEvent): Promise<void> {
     e.preventDefault();
@@ -75,7 +113,6 @@ export function CustomersPage() {
 
       if (result.status_code === 201) {
         toast.success("Customer berhasil ditambahkan");
-        await fetchCustomers();
 
         setName("");
         setPhone("");
@@ -101,25 +138,6 @@ export function CustomersPage() {
       setSubmitting(false);
     }
   }
-
-  const filtered = React.useMemo((): Customer[] => {
-    if (!Array.isArray(customers)) {
-      return [];
-    }
-
-    if (!search) {
-      return customers;
-    }
-
-    const q = search.toLowerCase();
-
-    return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.phone.includes(q) ||
-        c.address?.toLowerCase().includes(q),
-    );
-  }, [customers, search]);
 
   return (
     <div className="space-y-6">
@@ -160,13 +178,18 @@ export function CustomersPage() {
       {/* Summary */}
       <div className="mx-4 lg:mx-6 text-sm text-muted-foreground">
         Menampilkan{" "}
-        <span className="font-medium text-foreground">{filtered.length}</span>{" "}
-        dari{" "}
-        <span className="font-medium text-foreground">{customers.length}</span>{" "}
-        pelanggan
+        <span className="font-medium text-foreground">
+          {metadata_first.total}
+        </span>{" "}
+        dari <span className="font-medium text-foreground">{}</span> pelanggan
       </div>
 
-      <DataTable data={customers} />
+      <DataTable
+        data={customers.data?.data ?? []}
+        metadata={metadata_first}
+        pagination={pagination}
+        setPagination={setPagination}
+      />
 
       {/* Add Customer Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>

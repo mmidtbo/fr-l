@@ -21,11 +21,11 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
+  type PaginationState,
   type Row,
   type SortingState,
   type VisibilityState,
@@ -38,7 +38,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -60,16 +59,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Customer } from "@/lib/types";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
-  IconChevronDown,
+  CustomersPaginationrequest,
+  formatDate,
+  type Customer,
+  type CustomerMetadata,
+} from "@/lib/types";
+import {
   IconChevronLeft,
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
   IconDotsVertical,
-  IconLayoutColumns,
 } from "@tabler/icons-react";
 
 export const schema = z.object({
@@ -82,15 +84,7 @@ export const schema = z.object({
   updated_at: z.string(),
 });
 
-export type Order = z.infer<typeof schema>;
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "-";
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(dateStr));
-}
+export type Customers = z.infer<typeof schema>;
 
 function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
@@ -119,22 +113,36 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 
 type DataTableProps = {
   data: Customer[];
+  metadata: CustomerMetadata | undefined;
+  pagination: PaginationState;
+  setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
 };
 
-export function DataTable({ data }: DataTableProps) {
+export function DataTable({
+  data,
+  metadata,
+  pagination,
+  setPagination,
+}: DataTableProps) {
   const [rowSelection, setRowSelection] = React.useState({});
-  const [showReceipt, setShowReceipt] = React.useState(false);
-  const [selectedOrder, setSelectedOrder] = React.useState<Order>();
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [pagination, setPagination] = React.useState({
-    pageIndex: 0,
-    pageSize: 10,
-  });
+
+  React.useEffect(() => {
+    getCustomers();
+  }, [pagination.pageIndex, pagination.pageSize]);
+
+  async function getCustomers() {
+    const response = await CustomersPaginationrequest(
+      pagination.pageIndex + 1,
+      pagination.pageSize,
+    );
+    return response?.data?.data;
+  }
 
   const sortableId = React.useId();
   const sensors = useSensors(
@@ -177,11 +185,6 @@ export function DataTable({ data }: DataTableProps) {
       enableSorting: false,
       enableHiding: false,
     },
-    // {
-    //   accessorKey: "No",
-    //   header: "No",
-    //   cell: ({ row }) => <div className="font-mono font-semibold">{}</div>,
-    // },
     {
       accessorKey: "customer_name",
       header: "Customer",
@@ -247,6 +250,8 @@ export function DataTable({ data }: DataTableProps) {
   const table = useReactTable({
     data,
     columns,
+    manualPagination: true,
+    pageCount: Math.ceil((metadata?.total ?? 0) / pagination.pageSize),
     state: {
       sorting,
       columnVisibility,
@@ -263,7 +268,6 @@ export function DataTable({ data }: DataTableProps) {
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -329,7 +333,7 @@ export function DataTable({ data }: DataTableProps) {
           <div className="flex items-center justify-between px-4">
             <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
               {table.getFilteredSelectedRowModel().rows.length} of{" "}
-              {table.getFilteredRowModel().rows.length} row(s) selected.
+              {metadata?.total} row(s) selected.
             </div>
             <div className="flex w-full items-center gap-8 lg:w-fit">
               <div className="hidden items-center gap-2 lg:flex">
@@ -384,7 +388,12 @@ export function DataTable({ data }: DataTableProps) {
                   variant="outline"
                   className="size-8"
                   size="icon"
-                  onClick={() => table.nextPage()}
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      pageIndex: prev.pageIndex + 1,
+                    }))
+                  }
                   disabled={!table.getCanNextPage()}
                 >
                   <span className="sr-only">Go to next page</span>
@@ -405,8 +414,6 @@ export function DataTable({ data }: DataTableProps) {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Receipt Dialog */}
     </>
   );
 }

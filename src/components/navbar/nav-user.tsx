@@ -1,11 +1,4 @@
-import {
-  BadgeCheck,
-  Bell,
-  ChevronsUpDown,
-  CreditCard,
-  LogOut,
-  Sparkles,
-} from "lucide-react";
+import { BadgeCheck, ChevronsUpDown, LogOut } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -24,15 +17,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
   const { user, loading, signOut } = useAuth();
-  const { state } = useSidebar();
   const navigate = useNavigate();
-  const location = useLocation();
 
   if (loading) {
     toast("Loading...");
@@ -68,6 +59,7 @@ export function NavUser() {
                 <span className="truncate text-xs">
                   {user?.role === "owner" ? "owner" : "karyawan"}
                 </span>
+                <span className="truncate text-xs">{user?.email}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>

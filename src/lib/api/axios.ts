@@ -26,6 +26,7 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    console.log(originalRequest);
 
     // Handle 401: token invalid/expired
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -33,10 +34,9 @@ api.interceptors.response.use(
 
       try {
         await refreshApi.get(REFRESH);
-
         return api(originalRequest);
       } catch {
-        window.location.href = "/login";
+        return Promise.reject(error);
       }
     }
 

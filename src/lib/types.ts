@@ -1,4 +1,4 @@
-import api from "./api/axios";
+import api, { apiSafe } from "./api/axios";
 
 export type UserRole = "owner" | "karyawan";
 
@@ -23,12 +23,14 @@ export const ORDERS = `${URL}/orders`;
 export const ORDERS_ALL = `${URL}/orders/all`;
 export const ORDERS_BY_STATUS = `${URL}/orders/status`;
 export const CUSTOMERS = `${URL}/customers`;
-export const REFRESH = `${URL}/refresh`;
+export const REFRESH = `${URL}/token/refresh`;
 export const STATS = `${URL}/dashboard/stats`;
 export const INCOME = `${URL}/dashboard/income?day=`;
-export const INCOME_TEST = `${URL}/dashboard/income?day=30`;
+export const LINE_CHART = `${URL}/dashboard/orderweek`;
+export const BAR_CHART = `${URL}/dashboard/servicecount`;
 export const PERCENTAGE_DIFF = `${URL}/orders/percentage`;
 export const ORDERS_COUNT = `${URL}/orders/countorders`;
+export const PAYMENTS = `${URL}/payments`;
 
 export type SignOutResponse = {
   message: string;
@@ -70,6 +72,28 @@ export interface Customer {
   updated_at: string;
 }
 
+export interface CustomerMetadata {
+  page: number | undefined;
+  take: number | undefined;
+  total: number | undefined;
+}
+
+export interface CustomersRaw {
+  data: {
+    id: string;
+    name: string;
+    phone: string;
+    total_orders: number;
+    address: string;
+    created_at: string;
+    updated_at: string;
+  }[];
+  page: number;
+  status_code: number;
+  take: number;
+  total: number;
+}
+
 export type CustomerResponse = {
   data: {
     id: string;
@@ -99,24 +123,94 @@ export type ServicePrice = {
 export interface Order {
   id: string;
   order_code: string;
-  customer_id: string;
-  customers?: Customer;
-  service_price_id: string;
-  service_prices?: ServicePrice;
+  customers: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+  service_prices: {
+    id: string;
+    name: string;
+    unit_label: string;
+    pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
+    price_min: string;
+    price_max: string | null;
+  };
+  is_express: boolean | null;
   quantity: number;
-  is_express: boolean;
-  base_price: number;
-  express_surcharge: number;
   total_price: number;
   status: OrderStatus;
   payment_status: PaymentStatus;
-  is_overdue: boolean;
+  estimated_done: string | null;
+  base_price: number;
+  express_surcharge: number;
+  created_at: string;
+  condition_notes: string;
+  picked_up_at: string | null;
+}
+
+export interface OrdersRaw {
+  data: {
+    id: string;
+    order_code: string;
+    customers: {
+      id: string;
+      name: string;
+      phone: string;
+    };
+    service_prices: {
+      id: string;
+      name: string;
+      unit_label: string;
+      pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
+      price_min: string;
+      price_max: string | null;
+    };
+    is_express: boolean | null;
+    quantity: number;
+    total_price: number;
+    status: OrderStatus;
+    payment_status: PaymentStatus;
+    estimated_done: string | null;
+    base_price: number;
+    express_surcharge: number;
+    created_at: string;
+    condition_notes: string;
+    notes: string;
+    picked_up_at: string | null;
+  }[];
+  page: number;
+  take: number;
+  total: number;
+}
+
+export interface Orders {
+  id: string;
+  order_code: string;
+  customers: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+  service_prices: {
+    id: string;
+    name: string;
+    unit_label: string;
+    pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
+    price_min: string;
+    price_max: string | null;
+  };
+  is_express: boolean | null;
+  quantity: number;
+  total_price: number;
+  status: OrderStatus;
+  payment_status: PaymentStatus;
+  estimated_done: string | null;
+  base_price: number;
+  express_surcharge: number;
+  created_at: string;
   condition_notes: string;
   notes: string;
-  estimated_done: string | null;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
   picked_up_at: string | null;
 }
 
@@ -126,8 +220,7 @@ export interface DashboardRecentOrders {
   customer_name: string;
   customer_phone: string;
   service_name: string;
-  is_express: boolean;
-  service_category: string;
+  is_express: boolean | undefined;
   quantity: number;
   total_price: number;
   status: string;
@@ -155,6 +248,46 @@ export interface DashboardStatsResponse {
   };
   recentOrders: Order[];
 }
+
+export interface DashboardResponseRaw {
+  data: {
+    stats: {
+      todayOrders: number;
+      todayRevenue: number;
+      pendingPickup: number;
+      overdueOrders: number;
+    };
+    recentOrders: {
+      id: string;
+      order_code: string;
+      customer_id: string;
+      customers?: Customer;
+      service_price_id: string;
+      service_prices?: ServicePrice;
+      quantity: number;
+      is_express: boolean;
+      base_price: number;
+      express_surcharge: number;
+      total_price: number;
+      status: OrderStatus;
+      payment_status: PaymentStatus;
+      is_overdue: boolean;
+      condition_notes: string;
+      notes: string;
+      estimated_done: string | null;
+      created_by: string;
+      created_at: string;
+      updated_at: string;
+      picked_up_at: string | null;
+    }[];
+  };
+}
+
+export type PercentageDiffRaw = {
+  data: {
+    percentage_diff: number;
+  };
+};
 
 export interface Income {
   income: number | 0;
@@ -231,16 +364,12 @@ export function generateOrderCode(date: Date): string {
   return `GRS-${year}${month}${day}-${rand}`;
 }
 
-export interface FetchOrdersResult {
-  ordersData: Order[];
-  customersData: Customer[];
-  pricesData: ServicePrice[];
-}
-
 export async function fetchOrdersData(
+  page?: number,
+  take?: number,
   status?: string,
   date?: string,
-): Promise<FetchOrdersResult> {
+) {
   const params = new URLSearchParams();
   if (status && status !== "all") {
     params.set("status", status);
@@ -251,26 +380,39 @@ export async function fetchOrdersData(
 
   const queryStr = params.toString();
   const ordersPromise = queryStr
-    ? api.get(`${ORDERS_BY_STATUS}?${queryStr}`)
-    : api.get(ORDERS_ALL);
+    ? apiSafe.get<OrdersRaw>(
+        `${ORDERS_BY_STATUS}?${queryStr}&page=${page}&take=${take}`,
+      )
+    : apiSafe.get<OrdersRaw>(`${ORDERS_ALL}?page=${page}&take=${take}`);
 
   const [ordersRes, serviceRes, customersRes] = await Promise.all([
     ordersPromise,
-    api.get(SERVICE),
-    api.get(CUSTOMERS),
+    apiSafe.get<ServiceRaw>(SERVICE),
+    apiSafe.get<CustomersRaw>(`${CUSTOMERS}?page=${page}&take=${take}`),
   ]);
 
-  const ordersData =
-    ordersRes.data.filter((order: Order): boolean => {
-      return order.customers?.name !== undefined;
-    }) ?? [];
+  const order_metadata = {
+    page: ordersRes.data?.page,
+    take: ordersRes.data?.take,
+    total: ordersRes.data?.total,
+  };
+  const ordersData = ordersRes.data?.data;
 
-  const customersData = customersRes.data;
+  const customer_metadata = {
+    page: customersRes.data?.page,
+    take: customersRes.data?.take,
+    total: customersRes.data?.total,
+  };
+
+  const customersData = customersRes.data?.data;
+  const pricesData = serviceRes.data?.data;
 
   return {
     ordersData,
+    order_metadata,
     customersData,
-    pricesData: serviceRes.data,
+    customer_metadata,
+    pricesData,
   };
 }
 
@@ -289,3 +431,42 @@ export type DataTableProps = {
   data: Order[];
   onUpdateStatus: (order: Order) => Promise<void>;
 };
+
+export async function CustomersPaginationrequest(page?: number, take?: number) {
+  let data;
+  try {
+    data = await apiSafe.get<CustomersRaw>(
+      `${CUSTOMERS}?page=${page}&take=${take}`,
+    );
+  } catch {}
+  return data;
+}
+
+export type LineChart = {
+  data: {
+    date: string;
+    count: string;
+  };
+};
+
+export type BarChart = {
+  data: {
+    service_name: string;
+    jumlah: string;
+  };
+};
+
+export interface ServiceRaw {
+  data: {
+    id: string;
+    name: string;
+    category: "basic_wash" | "full_service" | "ironing" | "item_based";
+    pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
+    price_min: number;
+    price_max: number | null;
+    unit_label: string | "pcs";
+    default_turnaround_hours: number | 48;
+    is_active: number | 1;
+    updated_at: string;
+  }[];
+}

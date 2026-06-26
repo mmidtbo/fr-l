@@ -1,10 +1,10 @@
+import { Frame, LifeBuoy, PieChart, Send } from "lucide-react";
 import * as React from "react";
-import { Frame, LifeBuoy, Map, PieChart, Send } from "lucide-react";
 
-import { NavMain } from "@/components/taskbar-demo/nav-main";
-import { NavProjects } from "@/components/taskbar-demo/nav-projects";
-import { NavSecondary } from "@/components/taskbar-demo/nav-secondary";
-import { NavUser } from "@/components/taskbar-demo/nav-user";
+import { NavMain } from "@/components/navbar/nav-main";
+import { NavProjects } from "@/components/navbar/nav-projects";
+import { NavSecondary } from "@/components/navbar/nav-secondary";
+import { NavUser } from "@/components/navbar/nav-user";
 import {
   Sidebar,
   SidebarContent,

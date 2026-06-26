@@ -1,31 +1,69 @@
-import { Printer, WashingMachine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import type { Order } from "@/lib/types";
-import { formatRupiah, STATUS_LABELS } from "@/lib/types";
+import api from "@/lib/api/axios";
+import type { Orders } from "@/lib/types";
+import { formatRupiah, PAYMENTS, STATUS_LABELS } from "@/lib/types";
+import { Printer, WashingMachine } from "lucide-react";
+import React from "react";
 
 interface OrderReceiptProps {
-  order: Order;
+  order: Orders;
+  userId?: string;
+  onPaymentSuccess?: () => void;
 }
 
-export function OrderReceipt({ order }: OrderReceiptProps) {
-  const estimatedDate = order.estimated_done
-    ? new Date(order.estimated_done).toLocaleDateString("id-ID", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : "-";
+export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptProps) {
+  const [paying, setPaying] = React.useState(false);
+  const [payMethod, setPayMethod] = React.useState("cash");
+  const [payAmount, setPayAmount] = React.useState(order.total_price);
+  const [payError, setPayError] = React.useState("");
 
-  const createdDate = new Date(order.created_at).toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const isUnpaid = order.payment_status !== "lunas";
+
+  const dateStr = (d: string | null) => {
+    if (!d) return "-";
+    return new Date(d).toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const estimatedDate = dateStr(order.estimated_done);
+  const createdDate = dateStr(order.created_at);
+  const pickedUpDate = dateStr(order.picked_up_at);
+
+  const handlePay = async () => {
+    if (!payAmount || payAmount <= 0) {
+      setPayError("Jumlah pembayaran harus lebih dari 0");
+      return;
+    }
+    setPaying(true);
+    setPayError("");
+    try {
+      await api.post(PAYMENTS, {
+        order_id: order.id,
+        method: payMethod,
+        amount: payAmount,
+        paid_by: userId,
+      });
+      onPaymentSuccess?.();
+    } catch (err: any) {
+      setPayError(err.message || "Gagal memproses pembayaran");
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -134,12 +172,14 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
 
         <Separator />
 
-        {/* Estimated Done */}
+        {/* Estimated Done / Pickup Time */}
         <div className="my-3">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Estimasi Selesai</span>
+            <span className="text-muted-foreground">
+              {order.status === "picked_up" ? "Diambil Pada" : "Estimasi Selesai"}
+            </span>
             <span className="font-medium text-right max-w-[180px]">
-              {estimatedDate}
+              {order.status === "picked_up" ? pickedUpDate : estimatedDate}
             </span>
           </div>
         </div>
@@ -157,6 +197,19 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
           </>
         )}
 
+        {/* Notes */}
+        {order.notes && (
+          <>
+            <Separator />
+            <div className="my-3">
+              <p className="text-muted-foreground text-xs mb-1">
+                Catatan Internal
+              </p>
+              <p className="text-sm">{order.notes}</p>
+            </div>
+          </>
+        )}
+
         <Separator />
 
         {/* Disclaimer */}
@@ -169,15 +222,55 @@ export function OrderReceipt({ order }: OrderReceiptProps) {
             2. Gresik Laundry tidak bertanggung jawab atas kerusakan yang sudah
             ada sebelumnya.
           </p>
-          {/* <p> */}
-          {/*   Pakaian yang tidak diambil lebih dari 30 hari menjadi tanggung jawab */}
-          {/*   pelanggan. */}
-          {/* </p> */}
           <p className="font-medium mt-4">
             Terima kasih sudah mempercayakan cucian Anda kepada kami!
           </p>
         </div>
       </div>
+
+      {/* Payment Section */}
+      {isUnpaid && (
+        <div className="border rounded-lg p-4 mt-4 space-y-3">
+          <p className="text-sm font-medium">Pembayaran</p>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              Metode
+            </label>
+            <Select value={payMethod} onValueChange={setPayMethod}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="transfer">Transfer</SelectItem>
+                <SelectItem value="qris">QRIS</SelectItem>
+                <SelectItem value="ewallet">E-Wallet</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              Jumlah Dibayar
+            </label>
+            <input
+              type="number"
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.valueAsNumber || 0)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+            />
+          </div>
+          {payError && (
+            <p className="text-xs text-red-500">{payError}</p>
+          )}
+          <Button
+            className="w-full gap-2"
+            onClick={handlePay}
+            disabled={paying}
+          >
+            {paying ? "Memproses..." : "Bayar Sekarang"}
+          </Button>
+        </div>
+      )}
 
       <Button onClick={handlePrint} className="w-full gap-2 mt-4">
         <Printer className="size-4" />

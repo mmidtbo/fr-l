@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/card";
 import { formatRupiah } from "@/lib/types";
 import {
-  IconBuildingBank,
   IconCalendarExclamation,
   IconChartBar,
   IconHours24,

@@ -1,10 +1,7 @@
 import * as React from "react";
-import { Frame, LifeBuoy, Map, PieChart, Send } from "lucide-react";
 
-import { NavMain } from "@/components/taskbar-demo/nav-main";
-import { NavProjects } from "@/components/taskbar-demo/nav-projects";
-import { NavSecondary } from "@/components/taskbar-demo/nav-secondary";
-import { NavUser } from "@/components/taskbar-demo/nav-user";
+import { NavMain } from "@/components/navbar/nav-main";
+import { NavUser } from "@/components/navbar/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -19,14 +16,11 @@ import {
   IconListDetails,
   IconUsersGroup,
   IconWashMachine,
+  IconSettings,
+  IconReportAnalytics,
 } from "@tabler/icons-react";
 
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -43,35 +37,16 @@ const data = {
       url: "/customers",
       icon: IconUsersGroup,
     },
-  ],
-  navSecondary: [
     {
-      title: "Support",
+      title: "Laporan",
       url: "/reports",
-      icon: LifeBuoy,
+      icon: IconReportAnalytics,
     },
     {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
-    },
-  ],
-  projects: [
-    {
-      name: "Reports",
-      url: "/reports",
-      icon: Frame,
-    },
-    {
-      name: "Settings",
+      title: "Pengaturan",
       url: "/settings",
-      icon: PieChart,
+      icon: IconSettings,
     },
-    // {
-    //   name: "Travel",
-    //   url: "#",
-    //   icon: Map,
-    // },
   ],
 };
 
@@ -99,11 +74,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );

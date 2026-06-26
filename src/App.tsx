@@ -10,7 +10,7 @@ import { SettingsPage } from "@/pages/SettingsPage";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { OrdersPage } from "@/pages/OrdersPage";
-import { SiteHeader } from "@/components/taskbar-demo/site-header";
+import { SiteHeader } from "@/components/navbar/site-header";
 
 function RequireAuth() {
   const { user } = useAuth();

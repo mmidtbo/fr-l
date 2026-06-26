@@ -15,15 +15,16 @@ import {
   IconPackageExport,
   IconClockExclamation,
   IconCalendarExclamation,
-  IconExclamationMark,
 } from "@tabler/icons-react";
+import { Skeleton } from "./ui/skeleton";
 
 interface SectionCardsProps {
   stats: DashboardStats;
   isOwner: boolean;
+  isLoading: boolean;
 }
 
-export function SectionCards({ stats, isOwner }: SectionCardsProps) {
+export function SectionCards({ stats, isOwner, isLoading }: SectionCardsProps) {
   const statCards = [
     {
       title: "Pesanan Hari Ini",
@@ -69,30 +70,42 @@ export function SectionCards({ stats, isOwner }: SectionCardsProps) {
         <CardHeader>
           <CardDescription>{statCards[0].title}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {statCards[0].value}
+            {isLoading ? (
+              <Skeleton className="h-12 w-12 rounded-full" />
+            ) : (
+              statCards[0].value
+            )}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              {stats.ordersCount >= 0 ? (
-                <>
-                  <IconTrendingUp />+{stats.ordersCount}
-                </>
-              ) : stats.ordersCount < 0 ? (
-                <>
-                  <IconTrendingDown />
-                  {stats.ordersCount}
-                </>
-              ) : (
-                <>
-                  <IconTrendingUp className="opacity-50" />0
-                </>
-              )}
-            </Badge>
+            {isLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Badge variant="outline">
+                {stats.ordersCount >= 0 ? (
+                  <>
+                    <IconTrendingUp />+{stats.ordersCount}
+                  </>
+                ) : stats.ordersCount < 0 ? (
+                  <>
+                    <IconTrendingDown />
+                    {stats.ordersCount}
+                  </>
+                ) : (
+                  <>
+                    <IconTrendingUp className="opacity-50" />0
+                  </>
+                )}
+              </Badge>
+            )}
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            {stats.ordersCount > 0 ? (
+            {isLoading ? (
+              <>
+                <Skeleton className="h-4 w-full" />
+              </>
+            ) : stats.ordersCount > 0 ? (
               <>
                 Naik {stats.ordersCount} pelanggan dari kemarin
                 <IconTrendingUp className="size-4" />
@@ -114,26 +127,38 @@ export function SectionCards({ stats, isOwner }: SectionCardsProps) {
           <CardHeader>
             <CardDescription>{statCards[1].title}</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {statCards[1].value}
+              {isLoading ? (
+                <Skeleton className="h-12 w-12 rounded-full" />
+              ) : (
+                statCards[1].value
+              )}
             </CardTitle>
             <CardAction>
-              <Badge variant="outline">
-                {stats.percentageDiff >= 0 ? (
-                  <>
-                    <IconTrendingUp />+{stats.percentageDiff}%
-                  </>
-                ) : (
-                  <>
-                    <IconTrendingDown />
-                    {stats.percentageDiff}%
-                  </>
-                )}
-              </Badge>
+              {isLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Badge variant="outline">
+                  {stats.percentageDiff >= 0 ? (
+                    <>
+                      <IconTrendingUp />+{stats.percentageDiff}%
+                    </>
+                  ) : (
+                    <>
+                      <IconTrendingDown />
+                      {stats.percentageDiff}%
+                    </>
+                  )}
+                </Badge>
+              )}
             </CardAction>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
             <div className="line-clamp-1 flex gap-2 font-medium">
-              {stats.percentageDiff >= 0 ? (
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-4 w-full" />
+                </>
+              ) : stats.percentageDiff >= 0 ? (
                 <>
                   Naik {stats.percentageDiff}% dari kemarin
                   <IconTrendingUp className="size-4" />
@@ -153,7 +178,11 @@ export function SectionCards({ stats, isOwner }: SectionCardsProps) {
         <CardHeader>
           <CardDescription>{statCards[2].title}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {statCards[2].value}
+            {isLoading ? (
+              <Skeleton className="h-12 w-12 rounded-full" />
+            ) : (
+              statCards[2].value
+            )}
           </CardTitle>
           <CardAction>
             <IconPackageExport />
@@ -171,7 +200,11 @@ export function SectionCards({ stats, isOwner }: SectionCardsProps) {
         <CardHeader>
           <CardDescription>{statCards[3].title}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {statCards[3].value}
+            {isLoading ? (
+              <Skeleton className="h-12 w-12 rounded-full" />
+            ) : (
+              statCards[3].value
+            )}
           </CardTitle>
           <CardAction>
             <IconCalendarExclamation />
