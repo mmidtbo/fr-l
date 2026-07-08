@@ -13,7 +13,6 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,13 +24,23 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import api from "@/lib/api/axios";
+import { apiSafe } from "@/lib/api/axios";
 import type { Customer, ServicePrice } from "@/lib/types";
 import { CUSTOMERS, ORDERS } from "@/lib/types";
 import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-store";
 import React from "react";
+import { toast } from "sonner";
 import { z } from "zod";
+
+export interface OrderInitialData {
+  customerId: string;
+  servicePriceId: string;
+  quantity: number;
+  isExpress: boolean | null;
+  conditionNotes: string;
+  notes: string;
+}
 
 interface OrderDialogProps {
   open: boolean;
@@ -39,6 +48,7 @@ interface OrderDialogProps {
   onSuccess?: () => void;
   customer: Customer[];
   price: ServicePrice[];
+  initialData?: OrderInitialData;
 }
 
 export function OrderDialog({
@@ -47,6 +57,7 @@ export function OrderDialog({
   customer,
   price,
   onSuccess,
+  initialData,
 }: OrderDialogProps) {
   const [submitting, setSubmitting] = React.useState(false);
   const [showConditionNotes, setShowConditionNotes] = React.useState(false);
@@ -60,13 +71,13 @@ export function OrderDialog({
       newCustPhone: z.string(),
       newCustAddress: z.string(),
       servicePriceId: z.string().min(1, "Pilih layanan terlebih dahulu"),
-      quantity: z.coerce.number().positive("Jumlah/berat tidak boleh kosong"),
+      quantity: z.coerce.number<string>().positive("Jumlah tidak boleh kosong"),
       isExpress: z.boolean(),
-      conditionNotes: z.string().max(500).optional(),
-      notes: z.string().max(500).optional(),
+      conditionNotes: z.string().max(500),
+      notes: z.string().max(500),
       payNow: z.boolean(),
       paymentMethod: z.string(),
-      paymentAmount: z.coerce.number(),
+      paymentAmount: z.coerce.number<string>().min(0),
     })
     .superRefine((data, ctx) => {
       if (data.custMode === "existing" && !data.selectedCustId) {
@@ -116,63 +127,87 @@ export function OrderDialog({
       newCustPhone: "",
       newCustAddress: "",
       servicePriceId: "",
-      quantity: 0,
+      quantity: "1",
       isExpress: false,
       conditionNotes: "",
       notes: "",
       payNow: false,
       paymentMethod: "",
-      paymentAmount: 0,
+      paymentAmount: "",
     },
     validators: {
       onSubmit: formSchema,
-      onChange: formSchema,
-      onBlur: formSchema,
     },
     onSubmit: async ({ value }) => {
-      try {
-        console.log("MASUK ONSUBMIT");
-        console.log(value);
-        setSubmitting(true);
+      setSubmitting(true);
 
-        let custId = value.selectedCustId;
+      let custId = value.selectedCustId;
 
-        if (value.custMode === "new") {
-          const res = await api.post(CUSTOMERS, {
-            name: value.newCustName.trim(),
-            phone: value.newCustPhone.trim(),
-            address: value.newCustAddress.trim(),
-          });
-
-          custId = res.data.id;
+      if (value.custMode === "new") {
+        const res = await apiSafe.post(CUSTOMERS, {
+          name: value.newCustName.trim(),
+          phone: value.newCustPhone.trim(),
+          address: value.newCustAddress.trim(),
+        });
+        if (res.error) {
+          toast.error(res.error);
+          setSubmitting(false);
+          return;
         }
-        const payload: Record<string, unknown> = {
-          customer_id: custId,
-          service_price_id: value.servicePriceId,
-          quantity: value.quantity,
-          is_express: value.isExpress,
-          condition_notes: value.conditionNotes || undefined,
-          notes: value.notes || undefined,
-        };
-
-        if (value.payNow) {
-          payload.payment = {
-            method: value.paymentMethod,
-            amount: value.paymentAmount,
-            paid_by: custId,
-          };
-        }
-
-        await api.post(ORDERS, payload);
-
-        form.reset();
-        onOpenChange(false);
-        onSuccess?.();
-      } finally {
-        setSubmitting(false);
+        custId = (res.data as { data: { id: string } }).data.id;
       }
+
+      const payload: Record<string, unknown> = {
+        customer_id: custId,
+        service_price_id: value.servicePriceId,
+        quantity: value.quantity,
+        is_express: value.isExpress,
+        condition_notes: value.conditionNotes || undefined,
+        notes: value.notes || undefined,
+      };
+
+      if (value.payNow) {
+        payload.payment = {
+          method: value.paymentMethod,
+          amount: value.paymentAmount,
+          paid_by: custId,
+        };
+      }
+
+      const orderRes = await apiSafe.post(ORDERS, payload);
+      if (orderRes.error) {
+        toast.error(orderRes.error);
+        setSubmitting(false);
+        return;
+      }
+
+      toast.success("Pesanan berhasil dibuat!");
+      form.reset();
+      onOpenChange(false);
+      onSuccess?.();
+      setSubmitting(false);
     },
   });
+
+  React.useEffect(() => {
+    if (open && initialData) {
+      form.reset({
+        custMode: "existing",
+        selectedCustId: initialData.customerId,
+        newCustName: "",
+        newCustPhone: "",
+        newCustAddress: "",
+        servicePriceId: initialData.servicePriceId,
+        quantity: String(initialData.quantity),
+        isExpress: initialData.isExpress ?? false,
+        conditionNotes: initialData.conditionNotes,
+        notes: initialData.notes,
+        payNow: false,
+        paymentMethod: "",
+        paymentAmount: "",
+      });
+    }
+  }, [open, initialData]);
 
   const custMode = useStore(form.store, (state) => state.values.custMode);
 
@@ -185,6 +220,37 @@ export function OrderDialog({
     () => price.find((p) => p.id === servicePriceId),
     [price, servicePriceId],
   );
+
+  const quantity = useStore(form.store, (state) => state.values.quantity);
+
+  const isExpress = useStore(form.store, (state) => state.values.isExpress);
+
+  const totalPrice = React.useMemo(() => {
+    if (!selectedService) return 0;
+
+    let total = 0;
+
+    switch (selectedService.pricing_type) {
+      case "per_kg":
+      case "per_pcs":
+        total = selectedService.price_min * Number(quantity);
+        break;
+
+      case "fixed":
+        total = selectedService.price_min;
+        break;
+
+      case "range":
+        total = selectedService.price_max! * Number(quantity);
+        break;
+    }
+
+    if (isExpress) {
+      total *= 2; // +100%
+    }
+
+    return total;
+  }, [selectedService, quantity, isExpress]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -379,6 +445,30 @@ export function OrderDialog({
               </div>
             )}
 
+            {selectedService && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex justify-between">
+                  <span>Layanan</span>
+                  <span>{selectedService.name}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Harga</span>
+                  <span>Rp{selectedService.price_min.toLocaleString()}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Qty</span>
+                  <span>{quantity}</span>
+                </div>
+
+                <div className="flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>Rp{totalPrice.toLocaleString("id-ID")}</span>
+                </div>
+              </div>
+            )}
+
             {selectedService?.pricing_type === "per_kg" && (
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
@@ -411,11 +501,10 @@ export function OrderDialog({
 
                     <Input
                       type="number"
+                      step="any"
                       value={field.state.value}
                       onBlur={field.handleBlur}
-                      onChange={(e) =>
-                        field.handleChange(e.target.valueAsNumber || 0)
-                      }
+                      onChange={(e) => field.handleChange(e.target.value)}
                       aria-invalid={isInvalid}
                     />
 
@@ -544,10 +633,11 @@ export function OrderDialog({
                             <FieldLabel>Jumlah</FieldLabel>
                             <Input
                               type="number"
+                              step="any"
                               value={field.state.value}
                               onBlur={field.handleBlur}
                               onChange={(e) =>
-                                field.handleChange(e.target.valueAsNumber || 0)
+                                field.handleChange(e.target.value)
                               }
                               aria-invalid={isInvalid}
                             />

@@ -1,5 +1,3 @@
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
-
 import {
   Card,
   CardContent,
@@ -14,33 +12,32 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { formatRupiah } from "@/lib/types";
+import { IconTrendingUp } from "@tabler/icons-react";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
-export const description = "A line chart with dots";
+interface DailySummary {
+  date: string;
+  label: string;
+  revenue: number;
+  orders: number;
+}
 
 const chartConfig = {
-  desktop: {
-    label: "day",
+  revenue: {
+    label: "Pendapatan",
     color: "var(--chart-1)",
-  },
-  mobile: {
-    label: "order",
-    color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
 
-export function ChartLineDots(data: any) {
-  const chartData = data.data.map((od: { date: string; count: string }) => {
-    return {
-      day: od.date,
-      order: od.count,
-    };
-  });
-
+export function ChartLineReport({ data }: { data: DailySummary[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Grafik Pesanan Harian</CardTitle>
-        <CardDescription>Pesanan per Hari</CardDescription>
+        <CardTitle className="text-base">Tren Pendapatan Harian</CardTitle>
+        <CardDescription>
+          Total omzet per hari dalam periode yang dipilih
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col flex-1 pb-0">
         <ChartContainer
@@ -49,7 +46,7 @@ export function ChartLineDots(data: any) {
         >
           <LineChart
             accessibilityLayer
-            data={chartData}
+            data={data}
             margin={{
               top: 20,
               right: 12,
@@ -58,37 +55,49 @@ export function ChartLineDots(data: any) {
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="day"
+              dataKey="label"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => value.slice(8, 10)}
+              tick={{ fontSize: 12 }}
             />
             <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+              content={
+                <ChartTooltipContent
+                  formatter={(value) => [formatRupiah(Number(value))]}
+                />
+              }
             />
             <Line
-              dataKey="order"
+              dataKey="revenue"
               type="natural"
-              stroke="var(--color-desktop)"
+              stroke="var(--color-revenue)"
               strokeWidth={2}
               dot={{
-                fill: "var(--color-desktop)",
+                fill: "white",
               }}
               activeDot={{
                 r: 6,
               }}
-            />
+            >
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tick={{ fontSize: 12 }}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}rb`}
+              />
+            </Line>
           </LineChart>
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 leading-none font-medium">
-          Pergerakan pesanan per hari
+          Total pendapatan selama periode ini{" "}
+          <IconTrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
-          Total pesanan dalam periode
+          Berdasarkan data transaksi harian
         </div>
       </CardFooter>
     </Card>

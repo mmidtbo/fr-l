@@ -1,17 +1,11 @@
+// import { BarChartOrdersReport } from "@/components/barchart-orders-report-page";
+import { BarChartReport } from "@/components/barchart-report-page";
+import { BarChartOrdersReportDemo } from "@/components/barchart-report-page-demo";
+// import { ChartPieReport } from "@/components/chart-pie-report-page";
+import { ChartPieDonutReport } from "@/components/chart-pie-report-page-demo";
 import { DataTable } from "@/components/demo-pages/report-data-table";
+import { ChartLineReport } from "@/components/line-chart-report-page";
 import { SectionCards } from "@/components/section-cards-reports";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
 import {
   Select,
   SelectContent,
@@ -19,114 +13,91 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import api from "@/lib/api/axios";
-import type { Avgday, Income, IncomeService, Order } from "@/lib/types";
-import { formatRupiah, ORDERS_ALL, URL } from "@/lib/types";
+import { SpinnerEmpty } from "@/components/ui/spinner-empty";
+import { apiSafe } from "@/lib/api/axios";
+import type {
+  AvgDay,
+  DailyRevenue,
+  Income,
+  IncomeService,
+  OrdersCountDay,
+} from "@/lib/types";
+import { URL } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  XAxis,
-  YAxis,
-} from "recharts";
-
-interface DailySummary {
-  date: string;
-  label: string;
-  orders: number;
-  revenue: number;
-}
 
 export function ReportsPage() {
-  const [orders, setOrders] = React.useState<Order[]>([]);
-  const [loading, setLoading] = React.useState(true);
   const [period, setPeriod] = React.useState("30");
-  const [income, setIncome] = React.useState<Income>();
-  const [avgday, setAvgday] = React.useState<Avgday>();
-  const [incomeservice, setIncomeService] = React.useState<IncomeService[]>([]);
 
-  React.useEffect((): void => {
-    fetchData();
-  }, [period]);
-
-  async function fetchData(): Promise<void> {
-    setLoading(true);
-    try {
-      const [ordersRes, incomeRes, avgRes, incomeServiceRes] =
+  const dbh = useQuery({
+    queryKey: ["dashboard", period],
+    queryFn: async () => {
+      const [ordersRes, incomeRes, avgRes, incomeServiceRes, dailyRevenueRes] =
         await Promise.all([
-          api.get(ORDERS_ALL),
-          api.get(`${URL}/dashboard/income?day=${period}`),
-          api.get(`${URL}/dashboard/avgday?day=${period}`),
-          api.get(`${URL}/dashboard/incomeservice`),
+          apiSafe.get<OrdersCountDay>(
+            `${URL}/dashboard/orderscountday?day=${period}`,
+          ),
+          apiSafe.get<Income>(`${URL}/dashboard/income?day=${period}`),
+          apiSafe.get<AvgDay>(`${URL}/dashboard/avgday?day=${period}`),
+          apiSafe.get<IncomeService>(
+            `${URL}/dashboard/incomeservice?day=${period}`,
+          ),
+          apiSafe.get<DailyRevenue>(`${URL}/orders/dailyrevenue?day=${period}`),
         ]);
-      const ordersData: Order[] =
-        ordersRes.data.filter((order: Order): boolean => {
-          return order.customers?.name !== undefined;
-        }) ?? [];
-      const incomeData = incomeRes.data.income;
-      const avgdayData = avgRes.data.avg_day;
+      const ordersData = ordersRes.data;
+      const incomeData = incomeRes.data;
+      const avgData = avgRes.data;
       const incomeServiceData = incomeServiceRes.data;
-      console.log(incomeServiceData.length);
+      const dailyRevenueData = dailyRevenueRes.data;
 
-      setOrders(ordersData);
-      setIncome(incomeData);
-      setAvgday(avgdayData);
-      setIncomeService(incomeServiceData);
-    } catch {
-      // silent
-    }
-    setLoading(false);
-  }
-
-  const dailyData = React.useMemo((): DailySummary[] => {
-    const days: DailySummary[] = [];
-    const count = parseInt(period);
-    for (let i = count - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      const next = new Date(d);
-      next.setDate(next.getDate() + 1);
-      const dayOrders = orders.filter((o: Order): boolean => {
-        const t = new Date(o.created_at);
-        return t >= d && t < next;
-      });
-      days.push({
-        date: d.toISOString().split("T")[0],
-        label: d.toLocaleDateString("id-ID", {
-          day: "numeric",
-          month: "short",
-        }),
-        orders: dayOrders.length,
-        revenue: dayOrders.reduce((s, o) => s + o.total_price, 0),
-      });
-    }
-    return days;
-  }, [orders, period]);
-
-  const totalRevenue = Number(income == undefined ? 0 : income);
-  const avgPerDay = orders.length > 0 ? Number(avgday) : 0;
-  const uniqueCustomers = new Set(orders.map((o) => o.customer_id)).size;
-
-  const serviceBreakdown: IncomeService[] = incomeservice!;
-  if (!serviceBreakdown) {
-    return;
-  }
-
-  const chartConfig = {
-    revenue: { label: "Pendapatan", color: "var(--chart-1)" },
-    orders: { label: "Pesanan", color: "var(--chart-1)" },
-  };
-
-  // Show last N days in chart (max 30 for readability)
-  const chartData = dailyData.filter((_, i, arr) => {
-    if (arr.length <= 14) return true;
-    return i % Math.ceil(arr.length / 14) === 0 || i === arr.length - 1;
+      return {
+        ordersData,
+        incomeData,
+        avgData,
+        incomeServiceData,
+        dailyRevenueData,
+      };
+    },
   });
+
+  const dailyChartData = React.useMemo(() => {
+    return (dbh.data?.dailyRevenueData?.data ?? []).map((d) => ({
+      ...d,
+      label: new Date(d.date + "T00:00:00").toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+      }),
+    }));
+  }, [dbh.data?.dailyRevenueData]);
+
+  const serviceBreakdown = dbh.data?.incomeServiceData;
+
+  const sortedServiceData = React.useMemo(() => {
+    const data = serviceBreakdown?.data ?? [];
+    return [...data]
+      .map((d) => ({ ...d, total_revenue: Number(d.total_revenue) }))
+      .sort((a, b) => b.total_revenue - a.total_revenue);
+  }, [serviceBreakdown]);
+
+  if (dbh.isPending) {
+    return <SpinnerEmpty />;
+  }
+
+  const orderTotal =
+    Number(dbh.data?.ordersData?.total) === undefined
+      ? 0
+      : Number(dbh.data?.ordersData?.total);
+
+  const totalRevenue = Number(
+    dbh.data?.incomeData?.data.income == undefined
+      ? 0
+      : dbh.data.incomeData?.data.income,
+  );
+  const avgPerDay =
+    Number(orderTotal) > 0 ? Number(dbh.data?.avgData?.data.avg_day) : 0;
+  const uniqueCustomers = new Set(
+    dbh.data?.ordersData?.data.map((o) => o.customer_id),
+  ).size;
 
   return (
     <div className="space-y-6">
@@ -146,108 +117,31 @@ export function ReportsPage() {
             <SelectItem value="14">14 Hari Terakhir</SelectItem>
             <SelectItem value="30">30 Hari Terakhir</SelectItem>
             <SelectItem value="90">90 Hari Terakhir</SelectItem>
+            <SelectItem value="all">Semua waktu</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Summary Cards */}
       <SectionCards
         totalRevenue={totalRevenue}
-        orderslength={orders.length}
+        orderslength={orderTotal}
         avgPerDay={avgPerDay}
         period={period}
         uniqueCustomers={uniqueCustomers}
       />
 
-      {/* Revenue Chart */}
-
-      <div className="px-4 lg:px-6 space-y-6">
-        <Card className="@container/card">
-          <CardHeader>
-            <CardTitle className="text-base">Tren Pendapatan Harian</CardTitle>
-            <CardDescription>
-              Total omzet per hari dalam periode yang dipilih
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-            {loading ? (
-              <Skeleton className="h-56 w-full" />
-            ) : (
-              <ChartContainer config={chartConfig} className="h-56 w-full">
-                <LineChart data={chartData} accessibilityLayer>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 10 }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}rb`}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => [formatRupiah(Number(value))]}
-                      />
-                    }
-                  />
-                  <Line
-                    dataKey="revenue"
-                    stroke="var(--color-revenue)"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Orders Chart */}
-        <Card className="@container/card">
-          <CardHeader>
-            <CardTitle className="text-base">Volume Pesanan Harian</CardTitle>
-            <CardDescription>Jumlah transaksi masuk per hari</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-48 w-full" />
-            ) : (
-              <ChartContainer config={chartConfig} className="h-48 w-full">
-                <BarChart data={chartData} accessibilityLayer>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11 }}
-                    allowDecimals={false}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="orders"
-                    fill="var(--color-orders)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-2 dark:*:data-[slot=card]:bg-card">
+        <ChartLineReport data={dailyChartData} />
+        <BarChartOrdersReportDemo data={dailyChartData} />
+        <ChartPieDonutReport data={sortedServiceData} />
+        {/* <ChartPieReport data={sortedServiceData} /> */}
+        <BarChartReport data={sortedServiceData} />
       </div>
 
-      {/* Service Breakdown */}
-      <DataTable data={serviceBreakdown} totalRevenue={totalRevenue} />
+      <DataTable
+        data={serviceBreakdown?.data ?? []}
+        totalRevenue={totalRevenue}
+      />
     </div>
   );
 }

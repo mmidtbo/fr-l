@@ -1,4 +1,4 @@
-import api, { apiSafe } from "./api/axios";
+import { apiSafe } from "./api/axios";
 
 export type UserRole = "owner" | "karyawan";
 
@@ -33,7 +33,7 @@ export const ORDERS_COUNT = `${URL}/orders/countorders`;
 export const PAYMENTS = `${URL}/payments`;
 
 export type SignOutResponse = {
-  message: string;
+  data: string;
   status_code: number;
 };
 
@@ -45,6 +45,8 @@ export type User = {
   id: string;
   email: string;
   role: string;
+  first_name?: string | null;
+  last_name?: string | null;
 };
 
 export type UserResponse = {
@@ -52,15 +54,10 @@ export type UserResponse = {
     id: string;
     email: string;
     role: string;
+    first_name?: string | null;
+    last_name?: string | null;
   };
 };
-
-export interface Profile {
-  id: string;
-  name: string;
-  role: UserRole;
-  created_at: string;
-}
 
 export interface Customer {
   id: string;
@@ -146,6 +143,7 @@ export interface Order {
   express_surcharge: number;
   created_at: string;
   condition_notes: string;
+  notes: string;
   picked_up_at: string | null;
 }
 
@@ -182,6 +180,50 @@ export interface OrdersRaw {
   page: number;
   take: number;
   total: number;
+}
+
+export interface Income {
+  data: {
+    income: string;
+  };
+}
+
+export interface AvgDay {
+  data: {
+    avg_day: string;
+  };
+}
+
+export interface IncomeService {
+  data: {
+    id: string;
+    service_name: string;
+    total_order: number;
+    total_revenue: string;
+  }[];
+}
+
+export interface DailyRevenue {
+  data: {
+    date: string;
+    revenue: number;
+    orders: number;
+  }[];
+}
+
+export interface IncomeServiceTable {
+  id: string;
+  service_name: string;
+  total_order: number;
+  total_revenue: string;
+}
+
+export interface OrdersCountDay {
+  data: {
+    order_day: string;
+    customer_id: string;
+  }[];
+  total: string;
 }
 
 export interface Orders {
@@ -289,20 +331,13 @@ export type PercentageDiffRaw = {
   };
 };
 
-export interface Income {
-  income: number | 0;
-}
-
-export interface Avgday {
-  avg_day: number | 0;
-}
-
-export interface IncomeService {
-  id: string;
-  service_name: string;
-  total_order: number;
-  total_revenue: number;
-}
+// export interface Income {
+//   income: number | 0;
+// }
+//
+// export interface Avgday {
+//   avg_day: number | 0;
+// }
 
 export interface OrderAuditLog {
   id: string;
@@ -416,29 +451,15 @@ export async function fetchOrdersData(
   };
 }
 
-export async function handleUpdateStatus(order: Order): Promise<void> {
-  const next = STATUS_NEXT[order.status];
-  if (!next) return;
-  try {
-    await api.put(`${ORDERS}/${order.id}`, { status: next });
-    await fetchOrdersData();
-  } catch {
-    // silent
-  }
-}
-
 export type DataTableProps = {
   data: Order[];
   onUpdateStatus: (order: Order) => Promise<void>;
 };
 
 export async function CustomersPaginationrequest(page?: number, take?: number) {
-  let data;
-  try {
-    data = await apiSafe.get<CustomersRaw>(
-      `${CUSTOMERS}?page=${page}&take=${take}`,
-    );
-  } catch {}
+  const data = await apiSafe.get<CustomersRaw>(
+    `${CUSTOMERS}?page=${page}&take=${take}`,
+  );
   return data;
 }
 

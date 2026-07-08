@@ -11,6 +11,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { SiteHeader } from "@/components/navbar/site-header";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function RequireAuth() {
   const { user } = useAuth();
@@ -86,9 +87,11 @@ function AppContent() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -174,7 +174,8 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 
 type DataTableProps = {
   data: Order[];
-  onUpdateStatus: (order: Order) => Promise<void>;
+  onUpdateStatus: (order: Order) => void;
+  onDelete?: (order: Order) => void;
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
   pagination: PaginationState;
@@ -182,11 +183,15 @@ type DataTableProps = {
   metadata: any;
   userId?: string;
   onPaymentSuccess?: () => void;
+  selectedRowIds?: Record<string, boolean>;
+  onSelectedRowIdsChange?: (value: Record<string, boolean>) => void;
+  onReOrder?: (order: Order) => void;
 };
 
 export function DataTable({
   data,
   onUpdateStatus,
+  onDelete,
   statusFilter,
   onStatusFilterChange,
   pagination,
@@ -194,8 +199,26 @@ export function DataTable({
   metadata,
   userId,
   onPaymentSuccess,
+  selectedRowIds,
+  onSelectedRowIdsChange,
+  onReOrder,
 }: DataTableProps) {
-  const [rowSelection, setRowSelection] = React.useState({});
+  const [localRowSelection, setLocalRowSelection] = React.useState({});
+  const rowSelection = selectedRowIds ?? localRowSelection;
+  const setRowSelection = React.useCallback(
+    (updaterOrValue: Record<string, boolean> | ((old: Record<string, boolean>) => Record<string, boolean>)) => {
+      if (onSelectedRowIdsChange) {
+        const next =
+          typeof updaterOrValue === "function"
+            ? updaterOrValue(rowSelection)
+            : updaterOrValue;
+        onSelectedRowIdsChange(next);
+      } else {
+        setLocalRowSelection(updaterOrValue);
+      }
+    },
+    [onSelectedRowIdsChange, rowSelection],
+  );
   const [showReceipt, setShowReceipt] = React.useState(false);
   const [selectedOrder, setSelectedOrder] = React.useState<Order>();
   const [columnVisibility, setColumnVisibility] =
@@ -408,7 +431,7 @@ export function DataTable({
                 variant="outline"
                 size="sm"
                 className="gap-1 text-xs h-7"
-                onClick={(): Promise<void> => onUpdateStatus(row.original)}
+                onClick={() => onUpdateStatus(row.original)}
               >
                 {STATUS_LABELS[STATUS_NEXT[row.original.status]!]}
                 <IconChevronRight className="size-3" />
@@ -435,7 +458,7 @@ export function DataTable({
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }: { row: { original: Order } }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -447,11 +470,19 @@ export function DataTable({
               <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-32">
+            <DropdownMenuContent align="end" className="w-36">
             <DropdownMenuItem>Detail</DropdownMenuItem>
             <DropdownMenuItem>Edit</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onReOrder?.(row.original)}>
+              Pesanan Ulang
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">Hapus</DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => onDelete?.(row.original)}
+            >
+              Hapus
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -502,7 +533,7 @@ export function DataTable({
               size="sm"
               id="view-selector"
             >
-              <SelectValue placeholder="Select a view" />
+              <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua</SelectItem>
@@ -535,8 +566,8 @@ export function DataTable({
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <IconLayoutColumns />
-                  <span className="hidden lg:inline">Customize Columns</span>
-                  <span className="lg:hidden">Columns</span>
+                  <span className="hidden lg:inline">Kustomisasi Kolom</span>
+                  <span className="lg:hidden">Kolom</span>
                   <IconChevronDown />
                 </Button>
               </DropdownMenuTrigger>

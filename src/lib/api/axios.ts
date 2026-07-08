@@ -1,5 +1,6 @@
 import axios, { type AxiosResponse } from "axios";
 import { REFRESH } from "../types";
+import { toast } from "sonner";
 
 export type ApiResult<T> =
   | { data: T; error: null }
@@ -36,6 +37,7 @@ api.interceptors.response.use(
         await refreshApi.get(REFRESH);
         return api(originalRequest);
       } catch {
+        toast.error("Sesi Anda telah berakhir. Silakan login kembali.");
         return Promise.reject(error);
       }
     }

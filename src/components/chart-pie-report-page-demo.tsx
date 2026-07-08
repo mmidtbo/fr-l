@@ -13,6 +13,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { formatRupiah } from "@/lib/types";
 
 export const description = "A donut chart with text";
 
@@ -25,8 +26,10 @@ const colors = [
 ];
 
 type ChartItem = {
+  id: string;
   service_name: string;
-  jumlah: number;
+  total_order: number;
+  total_revenue: number;
   fill: string;
 };
 export type accInterface = {
@@ -35,12 +38,13 @@ export type accInterface = {
     color: string;
   };
 };
-export function ChartPieDonutText(data: any) {
+export function ChartPieDonutReport(data: any) {
+  console.log("data", data);
   const chartData = data.data.map(
-    (od: { service_name: string; jumlah: string }, index: number) => {
+    (od: { service_name: string; total_revenue: string }, index: number) => {
       return {
         service_name: od.service_name,
-        jumlah: Number(od.jumlah),
+        total_revenue: Number(od.total_revenue),
         fill: colors[index % colors.length],
       };
     },
@@ -71,11 +75,25 @@ export function ChartPieDonutText(data: any) {
           <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+              content={
+                <ChartTooltipContent
+                  formatter={(value, name) => [
+                    <span key="name" className="text-muted-foreground">
+                      {name}
+                    </span>,
+                    <span
+                      key="value"
+                      className="font-mono font-medium text-foreground tabular-nums"
+                    >
+                      {formatRupiah(Number(value))}
+                    </span>,
+                  ]}
+                />
+              }
             />
             <Pie
               data={chartData}
-              dataKey="jumlah"
+              dataKey="total_revenue"
               nameKey="service_name"
               innerRadius={60}
               strokeWidth={5}
@@ -115,10 +133,10 @@ export function ChartPieDonutText(data: any) {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex items-center gap-2 leading-none font-medium">
-          Total layanan terpesan
+          Total pendapatan dari semua layanan
         </div>
         <div className="leading-none text-muted-foreground">
-          Berdasarkan jumlah pesanan
+          Berdasarkan proporsi pendapatan per layanan
         </div>
       </CardFooter>
     </Card>

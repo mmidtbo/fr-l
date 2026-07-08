@@ -254,6 +254,8 @@ export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptPr
             </label>
             <input
               type="number"
+              min={0}
+              step="any"
               value={payAmount}
               onChange={(e) => setPayAmount(e.target.valueAsNumber || 0)}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"

@@ -1,4 +1,4 @@
-import api, { apiSafe } from "@/lib/api/axios";
+import { apiSafe } from "@/lib/api/axios";
 import {
   AUTH_ME,
   LOGIN,
@@ -9,7 +9,7 @@ import {
   type UserResponse,
 } from "@/lib/types";
 import * as React from "react";
-import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextValue {
   user: User | null;
@@ -17,13 +17,15 @@ interface AuthContextValue {
   signIn: (
     email: string,
     password: string,
-  ) => Promise<string | { error: null | string }>;
+  ) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
     password: string,
+    firstName: string,
+    lastName: string,
     role: "owner" | "karyawan",
-  ) => Promise<string | { error: string | null }>;
-  signOut: () => Promise<string | { error: null | string }>;
+  ) => Promise<{ error: string | null }>;
+  signOut: () => Promise<{ error: string | null }>;
 }
 
 export const AuthContext = React.createContext<AuthContextValue | undefined>(
@@ -31,87 +33,99 @@ export const AuthContext = React.createContext<AuthContextValue | undefined>(
 );
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const queryClient = useQueryClient();
 
-  React.useEffect(() => {
-    const init = async () => {
+  const { data: user, isLoading: loading } = useQuery({
+    queryKey: ["auth_user"],
+    queryFn: async () => {
       const response = await apiSafe.get<UserResponse>(AUTH_ME);
-
       if (response.data) {
-        const desc = {
-          id: response.data?.data.id,
-          email: response.data?.data.email,
-          role: response.data?.data.role,
-        };
-        setUser(desc);
+        return {
+          id: response.data.data.id,
+          email: response.data.data.email,
+          role: response.data.data.role,
+          first_name: response.data.data.first_name ?? null,
+          last_name: response.data.data.last_name ?? null,
+        } as User;
       }
-      setLoading(false);
-    };
-    init();
-  }, []);
+      return null;
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const signIn = async (
     email: string,
     password: string,
-  ): Promise<string | { error: null | string }> => {
+  ): Promise<{ error: string | null }> => {
     const response = await apiSafe.post<UserResponse>(LOGIN, {
       email,
       password,
     });
     if (response.error) {
-      toast(
-        response.error.includes("401")
+      return {
+        error: response.error.includes("401")
           ? "Email atau password salah. Silakan coba lagi."
           : response.error,
-      );
-      return response.error;
+      };
     }
     if (!response.data) {
-      toast("No data received from server");
       return { error: "No data received from server" };
     }
-    const desc = {
-      id: response.data?.data.id,
-      email: response.data?.data.email,
-      role: response.data?.data.role,
+    const userData: User = {
+      id: response.data.data.id,
+      email: response.data.data.email,
+      role: response.data.data.role,
+      first_name: response.data.data.first_name ?? null,
+      last_name: response.data.data.last_name ?? null,
     };
-    setUser(desc);
+    queryClient.setQueryData(["auth_user"], userData);
     return { error: null };
   };
 
   const signUp = async (
     email: string,
     password: string,
+    firstName: string,
+    lastName: string,
     role: "owner" | "karyawan",
-  ): Promise<string | { error: null | string }> => {
+  ): Promise<{ error: string | null }> => {
     const response = await apiSafe.post<UserResponse>(REGISTER, {
       email,
       password,
+      first_name: firstName,
+      last_name: lastName,
       role,
     });
 
     if (response.error) {
-      toast(response.error);
-      return response.error;
+      return {
+        error: response.error.includes("already")
+          ? "Email sudah terdaftar."
+          : response.error,
+      };
     }
     return { error: null };
   };
 
-  const signOut = async (): Promise<string | { error: null | string }> => {
-    const response: SignOutResponse = await api.delete(LOGOUT);
+  const signOut = async (): Promise<{ error: string | null }> => {
+    const response = await apiSafe.delete<SignOutResponse>(LOGOUT);
+    console.log(response.data?.data);
 
-    if (!response.message) {
-      toast("Unauthorized");
-      return response.message;
+    if (response.error) {
+      return { error: response.error };
     }
 
-    setUser(null);
+    if (!response.data?.data) {
+      return { error: "Logout gagal" };
+    }
+
+    queryClient.setQueryData(["auth_user"], null);
     return { error: null };
   };
 
   const value = React.useMemo(
-    () => ({ user, loading, signIn, signUp, signOut }),
+    () => ({ user: user ?? null, loading, signIn, signUp, signOut }),
     [user, loading],
   );
 

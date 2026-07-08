@@ -357,8 +357,8 @@ export function DataTable({ data }: { data: Order[] }) {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconLayoutColumns />
-                <span className="hidden lg:inline">Customize Columns</span>
-                <span className="lg:hidden">Columns</span>
+                <span className="hidden lg:inline">Kustomisasi Kolom</span>
+                <span className="lg:hidden">Kolom</span>
                 <IconChevronDown />
               </Button>
             </DropdownMenuTrigger>

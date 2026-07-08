@@ -84,59 +84,60 @@ export function CustomersPage() {
     setFormError("");
     setSubmitting(true);
 
-    try {
-      if (!name.trim()) {
-        setFormError("Nama tidak boleh kosong.");
-        return;
-      }
-
-      if (!phone.trim()) {
-        setFormError("Nomor HP tidak boleh kosong.");
-        return;
-      }
-
-      if (!/^08[0-9]{8,11}$/.test(phone.replace(/\s/g, ""))) {
-        setFormError("Format nomor HP tidak valid (contoh: 08123456789).");
-        return;
-      }
-
-      const response = await apiSafe.post<CustomerResponse>(CUSTOMERS, {
-        name,
-        phone,
-        address,
-      });
-
-      const result = response.data;
-      if (!result) {
-        throw new Error("Failed create customer");
-      }
-
-      if (result.status_code === 201) {
-        toast.success("Customer berhasil ditambahkan");
-
-        setName("");
-        setPhone("");
-        setAddress("");
-
-        setShowDialog(false);
-        return;
-      }
-
-      if (result.status_code === 409) {
-        setFormError("Nomor telepon sudah digunakan.");
-        toast.error("Nomor telepon sudah digunakan");
-        return;
-      }
-
-      setFormError("Terjadi kesalahan.");
-    } catch (error) {
-      console.error(error);
-
-      setFormError("Gagal menambahkan customer.");
-      toast.error("Terjadi kesalahan server");
-    } finally {
+    if (!name.trim()) {
+      setFormError("Nama tidak boleh kosong.");
       setSubmitting(false);
+      return;
     }
+
+    if (!phone.trim()) {
+      setFormError("Nomor HP tidak boleh kosong.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!/^08[0-9]{8,11}$/.test(phone.replace(/\s/g, ""))) {
+      setFormError("Format nomor HP tidak valid (contoh: 08123456789).");
+      setSubmitting(false);
+      return;
+    }
+
+    const response = await apiSafe.post<CustomerResponse>(CUSTOMERS, {
+      name,
+      phone,
+      address,
+    });
+
+    if (response.error) {
+      setFormError(response.error);
+      toast.error(response.error);
+      setSubmitting(false);
+      return;
+    }
+
+    const result = response.data;
+
+    if (result?.status_code === 201) {
+      toast.success("Customer berhasil ditambahkan");
+
+      setName("");
+      setPhone("");
+      setAddress("");
+
+      setShowDialog(false);
+      setSubmitting(false);
+      return;
+    }
+
+    if (result?.status_code === 409) {
+      setFormError("Nomor telepon sudah digunakan.");
+      toast.error("Nomor telepon sudah digunakan");
+      setSubmitting(false);
+      return;
+    }
+
+    setFormError("Terjadi kesalahan.");
+    setSubmitting(false);
   }
 
   return (

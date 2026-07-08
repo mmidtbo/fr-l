@@ -9,11 +9,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import api from "@/lib/api/axios";
+import { apiSafe } from "@/lib/api/axios";
 import type { ServicePrice } from "@/lib/types";
 import { formatRupiah, SERVICE } from "@/lib/types";
 import { RefreshCw, Save, Settings } from "lucide-react";
 import * as React from "react";
+import { toast } from "sonner";
 
 const CATEGORY_LABELS: Record<string, string> = {
   basic_wash: "Cuci Biasa",
@@ -36,10 +37,6 @@ export function SettingsPage() {
   const [editValues, setEditValues] = React.useState<
     Record<string, { price_min: string; price_max: string }>
   >({});
-  const [saveMsg, setSaveMsg] = React.useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   React.useEffect(() => {
     fetchPrices();
@@ -47,9 +44,11 @@ export function SettingsPage() {
 
   async function fetchPrices() {
     setLoading(true);
-    try {
-      const response = await api.get(SERVICE);
-      const data = (response as any).data ?? [];
+    const res = await apiSafe.get<any>(SERVICE);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      const data = (res.data as any)?.data ?? [];
       const list: ServicePrice[] = data.filter((p: any) => p.is_active);
       setPrices(list);
       const vals: Record<string, { price_min: string; price_max: string }> = {};
@@ -60,34 +59,31 @@ export function SettingsPage() {
         };
       });
       setEditValues(vals);
-    } catch {
-      // silent
     }
     setLoading(false);
   }
 
   async function handleSave() {
     setSaving(true);
-    setSaveMsg(null);
-    try {
-      for (const price of prices) {
-        const vals = editValues[price.id];
-        if (!vals) continue;
-        await api.put(`${SERVICE}/${price.id}`, {
-          price_min: parseFloat(vals.price_min) || 0,
-          price_max: vals.price_max ? parseFloat(vals.price_max) : null,
-        });
-      }
-      setSaveMsg({ type: "success", text: "Harga berhasil disimpan!" });
-      await fetchPrices();
-    } catch (err: any) {
-      setSaveMsg({
-        type: "error",
-        text: err.message || "Gagal menyimpan harga.",
+    let hasError = false;
+    for (const price of prices) {
+      const vals = editValues[price.id];
+      if (!vals) continue;
+      const res = await apiSafe.put(`${SERVICE}/${price.id}`, {
+        price_min: parseFloat(vals.price_min) || 0,
+        price_max: vals.price_max ? parseFloat(vals.price_max) : null,
       });
+      if (res.error) {
+        toast.error(res.error);
+        hasError = true;
+        break;
+      }
+    }
+    if (!hasError) {
+      toast.success("Harga berhasil disimpan!");
+      await fetchPrices();
     }
     setSaving(false);
-    setTimeout(() => setSaveMsg(null), 3000);
   }
 
   const activePrices = prices.filter((p) => p.is_active);
@@ -219,18 +215,6 @@ export function SettingsPage() {
                   );
                 })}
               </div>
-
-              {saveMsg && (
-                <p
-                  className={`mt-4 text-sm ${
-                    saveMsg.type === "success"
-                      ? "text-green-600"
-                      : "text-destructive"
-                  }`}
-                >
-                  {saveMsg.text}
-                </p>
-              )}
 
               <div className="mt-6 flex justify-end gap-2">
                 <Button

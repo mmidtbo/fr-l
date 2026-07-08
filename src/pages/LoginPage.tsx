@@ -31,7 +31,8 @@ export function LoginPage() {
   const [loginLoading, setLoginLoading] = React.useState(false);
   const [showLoginPw, setShowLoginPw] = React.useState(false);
 
-  const [regName, setRegName] = React.useState("");
+  const [regFirstName, setRegFirstName] = React.useState("");
+  const [regLastName, setRegLastName] = React.useState("");
   const [regEmail, setRegEmail] = React.useState("");
   const [regPassword, setRegPassword] = React.useState("");
   const [regRole, setRegRole] = React.useState<"owner" | "karyawan">(
@@ -41,27 +42,29 @@ export function LoginPage() {
   const [regLoading, setRegLoading] = React.useState(false);
   const [showRegPw, setShowRegPw] = React.useState(false);
 
+  const [activeTab, setActiveTab] = React.useState("login");
+
   const handleLogin = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setLoginError("");
 
     if (!loginEmail.trim()) {
-      toast("nama tidak boleh kosong");
+      setLoginError("Email tidak boleh kosong");
       return;
     }
     if (!loginPassword.trim()) {
-      toast("password tidak boleh kosong");
+      setLoginError("Password tidak boleh kosong");
       return;
     }
     if (loginPassword.length < 8) {
-      toast("password minimal 8 karakter");
+      setLoginError("Password minimal 8 karakter");
       return;
     }
 
     setLoginLoading(true);
-    const result = await signIn(loginEmail, loginPassword);
-    if (result.error) {
-      toast("Email atau password salah. Silakan coba lagi.");
+    const { error } = await signIn(loginEmail, loginPassword);
+    if (error) {
+      setLoginError(error);
     }
     setLoginLoading(false);
   };
@@ -69,8 +72,12 @@ export function LoginPage() {
   const handleRegister = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setRegError("");
-    if (!regName.trim()) {
-      setRegError("Nama tidak boleh kosong.");
+    if (!regFirstName.trim()) {
+      setRegError("Nama depan tidak boleh kosong.");
+      return;
+    }
+    if (!regLastName.trim()) {
+      setRegError("Nama belakang tidak boleh kosong.");
       return;
     }
     if (regPassword.length < 8) {
@@ -78,9 +85,23 @@ export function LoginPage() {
       return;
     }
     setRegLoading(true);
-    const { error } = await signUp(regEmail, regPassword, regName, regRole);
-    if (error)
-      setRegError(error.includes("already") ? "Email sudah terdaftar." : error);
+    const { error } = await signUp(
+      regEmail,
+      regPassword,
+      regFirstName,
+      regLastName,
+      regRole,
+    );
+    if (error) {
+      setRegError(error);
+      setRegLoading(false);
+      return;
+    }
+
+    toast.success("Akun berhasil dibuat! Silakan masuk.");
+    setLoginEmail(regEmail);
+    setLoginPassword(regPassword);
+    setActiveTab("login");
     setRegLoading(false);
   };
 
@@ -113,7 +134,7 @@ export function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="w-full mb-6">
                 <TabsTrigger value="login" className="flex-1">
                   Masuk
@@ -152,6 +173,7 @@ export function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowLoginPw((v) => !v)}
+                        aria-label={showLoginPw ? "Sembunyikan password" : "Tampilkan password"}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
                         {showLoginPw ? (
@@ -179,12 +201,22 @@ export function LoginPage() {
               <TabsContent value="register">
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="reg-name">Nama Lengkap</Label>
+                    <Label htmlFor="reg-first-name">Nama Depan</Label>
                     <Input
-                      id="reg-name"
-                      placeholder="Nama lengkap Anda"
-                      value={regName}
-                      onChange={(e) => setRegName(e.target.value)}
+                      id="reg-first-name"
+                      placeholder="Nama depan"
+                      value={regFirstName}
+                      onChange={(e) => setRegFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-last-name">Nama Belakang</Label>
+                    <Input
+                      id="reg-last-name"
+                      placeholder="Nama belakang"
+                      value={regLastName}
+                      onChange={(e) => setRegLastName(e.target.value)}
                       required
                     />
                   </div>
@@ -214,6 +246,7 @@ export function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowRegPw((v) => !v)}
+                        aria-label={showRegPw ? "Sembunyikan password" : "Tampilkan password"}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
                         {showRegPw ? (

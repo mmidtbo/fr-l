@@ -60,7 +60,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { formatRupiah, type IncomeService } from "@/lib/types";
+import { formatRupiah, type IncomeServiceTable } from "@/lib/types";
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -78,7 +78,7 @@ export const schema = z.object({
 
 export type Order = z.infer<typeof schema>;
 
-function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
+function DraggableRow({ row }: { row: Row<IncomeServiceTable> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
   });
@@ -104,11 +104,12 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 }
 
 type DataTableProps = {
-  data: IncomeService[];
+  data: IncomeServiceTable[];
   totalRevenue: number;
 };
 
 export function DataTable({ data, totalRevenue }: DataTableProps) {
+  console.log("data: ", data);
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -129,11 +130,11 @@ export function DataTable({ data, totalRevenue }: DataTableProps) {
   );
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map(({ id }) => id) || [],
+    () => data.map(({ id }) => id) || [],
     [data],
   );
 
-  const columns: ColumnDef<z.infer<typeof schema>>[] = [
+  const columns: ColumnDef<IncomeServiceTable>[] = [
     {
       id: "select",
       header: ({ table }) => (
@@ -188,7 +189,7 @@ export function DataTable({ data, totalRevenue }: DataTableProps) {
       header: "Total Pendapatan",
       cell: ({ row }) => (
         <div className="tabular-nums">
-          {formatRupiah(row.original.total_revenue)}
+          {formatRupiah(Number(row.original.total_revenue))}
         </div>
       ),
     },
@@ -198,7 +199,7 @@ export function DataTable({ data, totalRevenue }: DataTableProps) {
       cell: ({ row }) => (
         <div className="font-medium tabular-nums">
           {totalRevenue > 0
-            ? ((row.original.total_revenue / totalRevenue) * 100).toFixed(1)
+            ? ((Number(row.original.total_revenue) / totalRevenue) * 100).toFixed(1)
             : 0}
           %
         </div>
