@@ -8,7 +8,6 @@ export type ApiResult<T> =
   | { data: null; error: string };
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_URL,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -17,7 +16,6 @@ const api = axios.create({
 });
 
 const refreshApi = axios.create({
-  baseURL: import.meta.env.VITE_URL,
   timeout: 10000,
   withCredentials: true,
 });
