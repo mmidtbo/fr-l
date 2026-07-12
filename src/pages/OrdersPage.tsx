@@ -23,7 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SpinnerEmpty } from "@/components/ui/spinner-empty";
-import { useAuth } from "@/hooks/useAuth";
 import { apiSafe } from "@/lib/api/axios";
 import type { Order } from "@/lib/types";
 import {
@@ -38,9 +37,6 @@ import * as React from "react";
 import { toast } from "sonner";
 
 export function OrdersPage() {
-  const { user } = useAuth();
-  // const isOwner = user?.role === "owner";
-
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
@@ -118,8 +114,40 @@ export function OrdersPage() {
     );
   }, [ordersResponse.data?.orders, search]);
 
+  const reOrderInitialData = React.useMemo(
+    () =>
+      reOrder
+        ? {
+            customerId: reOrder.customers.id,
+            servicePriceId: reOrder.service_prices.id,
+            quantity: reOrder.quantity,
+            isExpress: reOrder.is_express,
+            conditionNotes: reOrder.condition_notes ?? "",
+            notes: reOrder.notes ?? "",
+          }
+        : undefined,
+    [reOrder],
+  );
+
   if (ordersResponse.isPending) {
     return <SpinnerEmpty />;
+  }
+
+  if (ordersResponse.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center lg:px-6">
+        <p className="text-sm text-muted-foreground">
+          Gagal memuat data pesanan.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => ordersResponse.refetch()}
+        >
+          Coba Lagi
+        </Button>
+      </div>
+    );
   }
 
   function onUpdateStatus(order: Order) {
@@ -356,8 +384,10 @@ export function OrdersPage() {
               </SelectContent>
             </Select>
             <AlertDialog
-              open={!!bulkStatusTarget && !bulkUpdating}
-              onOpenChange={(open) => { if (!open) setBulkStatusTarget(null); }}
+              open={!!bulkStatusTarget}
+              onOpenChange={(open) => {
+                if (!open && !bulkUpdating) setBulkStatusTarget(null);
+              }}
             >
               <AlertDialogTrigger asChild>
                 <Button size="sm" disabled={!bulkStatusTarget}>
@@ -377,9 +407,13 @@ export function OrdersPage() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Batal</AlertDialogCancel>
-                  <AlertDialogAction variant="default" onClick={confirmBulkStatusUpdate}>
-                    Ya, Update
+                  <AlertDialogCancel disabled={bulkUpdating}>Batal</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="default"
+                    onClick={confirmBulkStatusUpdate}
+                    disabled={bulkUpdating}
+                  >
+                    {bulkUpdating ? "Menyimpan..." : "Ya, Update"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -404,14 +438,7 @@ export function OrdersPage() {
         onSuccess={onOrderCreated}
         customer={ordersResponse.data?.customers ?? []}
         price={ordersResponse.data?.prices ?? []}
-        initialData={reOrder ? {
-          customerId: reOrder.customers.id,
-          servicePriceId: reOrder.service_prices.id,
-          quantity: reOrder.quantity,
-          isExpress: reOrder.is_express,
-          conditionNotes: reOrder.condition_notes,
-          notes: reOrder.notes,
-        } : undefined}
+        initialData={reOrderInitialData}
       />
 
       <DataTable
@@ -423,7 +450,6 @@ export function OrdersPage() {
         pagination={pagination}
         setPagination={setPagination}
         metadata={ordersResponse.data?.order_metadata}
-        userId={user?.id}
         onPaymentSuccess={() =>
           queryClient.invalidateQueries({ queryKey: ["orders_data"] })
         }

@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/chart";
 import { formatRupiah } from "@/lib/types";
 
-export const description = "A donut chart with text";
-
 const colors = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -32,14 +30,13 @@ type ChartItem = {
   total_revenue: number;
   fill: string;
 };
-export type accInterface = {
+type accInterface = {
   [service_name: string]: {
     label: string;
     color: string;
   };
 };
 export function ChartPieDonutReport(data: any) {
-  console.log("data", data);
   const chartData = data.data.map(
     (od: { service_name: string; total_revenue: string }, index: number) => {
       return {

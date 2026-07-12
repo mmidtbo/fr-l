@@ -14,8 +14,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
-export const description = "A donut chart with text";
-
 const colors = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -29,7 +27,7 @@ type ChartItem = {
   jumlah: number;
   fill: string;
 };
-export type accInterface = {
+type accInterface = {
   [service_name: string]: {
     label: string;
     color: string;

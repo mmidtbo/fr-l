@@ -24,6 +24,16 @@ function RequireAuth() {
   return <Outlet />;
 }
 
+function RequireOwner() {
+  const { user } = useAuth();
+
+  if (user?.role !== "owner") {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+}
+
 function AppLayout() {
   return (
     <SidebarProvider
@@ -76,8 +86,10 @@ function AppContent() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="customers" element={<CustomersPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+          <Route element={<RequireOwner />}>
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

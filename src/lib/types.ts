@@ -25,7 +25,6 @@ export const ORDERS_BY_STATUS = `${URL}/orders/status`;
 export const CUSTOMERS = `${URL}/customers`;
 export const REFRESH = `${URL}/token/refresh`;
 export const STATS = `${URL}/dashboard/stats`;
-export const INCOME = `${URL}/dashboard/income?day=`;
 export const LINE_CHART = `${URL}/dashboard/orderweek`;
 export const BAR_CHART = `${URL}/dashboard/servicecount`;
 export const PERCENTAGE_DIFF = `${URL}/orders/percentage`;
@@ -36,10 +35,6 @@ export type SignOutResponse = {
   data: string;
   status_code: number;
 };
-
-export type ApiResult<T> =
-  | { data: T; error: null }
-  | { data: null; error: string };
 
 export type User = {
   id: string;
@@ -63,10 +58,10 @@ export interface Customer {
   id: string;
   name: string;
   phone: string;
-  total_orders: number;
-  address: string;
-  created_at: string;
-  updated_at: string;
+  total_orders: number | null;
+  address: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface CustomerMetadata {
@@ -111,10 +106,10 @@ export type ServicePrice = {
   pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
   price_min: number;
   price_max: number | null;
-  unit_label: string | "pcs";
-  default_turnaround_hours: number | 48;
-  is_active: number | 1;
-  updated_at: string;
+  unit_label: string;
+  default_turnaround_hours: number | null;
+  is_active: boolean;
+  updated_at: string | null;
 };
 
 export interface Order {
@@ -140,10 +135,10 @@ export interface Order {
   payment_status: PaymentStatus;
   estimated_done: string | null;
   base_price: number;
-  express_surcharge: number;
-  created_at: string;
-  condition_notes: string;
-  notes: string;
+  express_surcharge: number | null;
+  created_at: string | null;
+  condition_notes: string | null;
+  notes: string | null;
   picked_up_at: string | null;
 }
 
@@ -171,10 +166,10 @@ export interface OrdersRaw {
     payment_status: PaymentStatus;
     estimated_done: string | null;
     base_price: number;
-    express_surcharge: number;
-    created_at: string;
-    condition_notes: string;
-    notes: string;
+    express_surcharge: number | null;
+    created_at: string | null;
+    condition_notes: string | null;
+    notes: string | null;
     picked_up_at: string | null;
   }[];
   page: number;
@@ -226,35 +221,8 @@ export interface OrdersCountDay {
   total: string;
 }
 
-export interface Orders {
-  id: string;
-  order_code: string;
-  customers: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  service_prices: {
-    id: string;
-    name: string;
-    unit_label: string;
-    pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
-    price_min: string;
-    price_max: string | null;
-  };
-  is_express: boolean | null;
-  quantity: number;
-  total_price: number;
-  status: OrderStatus;
-  payment_status: PaymentStatus;
-  estimated_done: string | null;
-  base_price: number;
-  express_surcharge: number;
-  created_at: string;
-  condition_notes: string;
-  notes: string;
-  picked_up_at: string | null;
-}
+// Alias untuk kompatibilitas — struktur identik dengan Order.
+export type Orders = Order;
 
 export interface DashboardRecentOrders {
   id: string;
@@ -279,16 +247,6 @@ export interface DashboardStats {
   overdueOrders: number;
   percentageDiff: number;
   ordersCount: number;
-}
-
-export interface DashboardStatsResponse {
-  stats: {
-    todayOrders: number;
-    todayRevenue: number;
-    pendingPickup: number;
-    overdueOrders: number;
-  };
-  recentOrders: Order[];
 }
 
 export interface DashboardResponseRaw {
@@ -332,23 +290,6 @@ export type PercentageDiffRaw = {
 };
 
 // export interface Income {
-//   income: number | 0;
-// }
-//
-// export interface Avgday {
-//   avg_day: number | 0;
-// }
-
-export interface OrderAuditLog {
-  id: string;
-  order_id: string;
-  user_id: string;
-  old_status: string | null;
-  new_status: string;
-  notes: string;
-  created_at: string;
-}
-
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   received: "Diterima",
   proses: "Diproses",
@@ -358,6 +299,11 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   ready: "Siap Diambil",
   picked_up: "Sudah Diambil",
 };
+
+// Surcharge express: +100% dari harga normal (dikenakan pada order per_kg).
+// Backend adalah sumber kebenaran total_price; konstanta ini hanya untuk estimasi UI.
+export const EXPRESS_SURCHARGE_RATE = 1; // +100%
+export const EXPRESS_MULTIPLIER = 1 + EXPRESS_SURCHARGE_RATE; // ×2
 
 export const STATUS_NEXT: Record<OrderStatus, OrderStatus | null> = {
   received: "proses",
@@ -369,34 +315,23 @@ export const STATUS_NEXT: Record<OrderStatus, OrderStatus | null> = {
   picked_up: null,
 };
 
-export const PAYMENT_LABELS: Record<PaymentStatus, string> = {
-  pending: "Pending",
-  lunas: "Lunas",
-  cicilan: "Cicilan",
-};
-
-export function formatRupiah(amount: number): string {
+export function formatRupiah(amount: number | null | undefined): string {
+  const value = Number(amount);
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
-  }).format(amount);
+  }).format(Number.isFinite(value) ? value : 0);
 }
 
-export function formatDate(dateStr: string | null): string {
+export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("id-ID", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(dateStr));
-}
-
-export function generateOrderCode(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `GRS-${year}${month}${day}-${rand}`;
+  }).format(date);
 }
 
 export async function fetchOrdersData(
@@ -451,11 +386,6 @@ export async function fetchOrdersData(
   };
 }
 
-export type DataTableProps = {
-  data: Order[];
-  onUpdateStatus: (order: Order) => Promise<void>;
-};
-
 export async function CustomersPaginationrequest(page?: number, take?: number) {
   const data = await apiSafe.get<CustomersRaw>(
     `${CUSTOMERS}?page=${page}&take=${take}`,
@@ -485,9 +415,9 @@ export interface ServiceRaw {
     pricing_type: "per_kg" | "per_pcs" | "fixed" | "range";
     price_min: number;
     price_max: number | null;
-    unit_label: string | "pcs";
-    default_turnaround_hours: number | 48;
-    is_active: number | 1;
-    updated_at: string;
+    unit_label: string;
+    default_turnaround_hours: number | null;
+    is_active: boolean;
+    updated_at: string | null;
   }[];
 }

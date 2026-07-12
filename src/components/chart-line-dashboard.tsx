@@ -15,8 +15,6 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-export const description = "A line chart with dots";
-
 const chartConfig = {
   desktop: {
     label: "day",

@@ -40,7 +40,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
@@ -61,7 +60,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
-  CustomersPaginationrequest,
   formatDate,
   type Customer,
   type CustomerMetadata,
@@ -78,10 +76,10 @@ export const schema = z.object({
   id: z.string(),
   name: z.string(),
   phone: z.string(),
-  total_orders: z.number(),
-  address: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  total_orders: z.number().nullable(),
+  address: z.string().nullable(),
+  created_at: z.string().nullable(),
+  updated_at: z.string().nullable(),
 });
 
 export type Customers = z.infer<typeof schema>;
@@ -116,6 +114,7 @@ type DataTableProps = {
   metadata: CustomerMetadata | undefined;
   pagination: PaginationState;
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
+  onDelete?: (customer: Customer) => void;
 };
 
 export function DataTable({
@@ -123,6 +122,7 @@ export function DataTable({
   metadata,
   pagination,
   setPagination,
+  onDelete,
 }: DataTableProps) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -131,18 +131,6 @@ export function DataTable({
     [],
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
-
-  React.useEffect(() => {
-    getCustomers();
-  }, [pagination.pageIndex, pagination.pageSize]);
-
-  async function getCustomers() {
-    const response = await CustomersPaginationrequest(
-      pagination.pageIndex + 1,
-      pagination.pageSize,
-    );
-    return response?.data?.data;
-  }
 
   const sortableId = React.useId();
   const sensors = useSensors(
@@ -224,7 +212,7 @@ export function DataTable({
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -237,10 +225,18 @@ export function DataTable({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-32">
-            <DropdownMenuItem>Detail</DropdownMenuItem>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">Hapus</DropdownMenuItem>
+            {onDelete ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => onDelete(row.original)}
+              >
+                Hapus
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem disabled>
+                Tidak ada aksi
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -322,7 +318,7 @@ export function DataTable({
                         colSpan={columns.length}
                         className="h-24 text-center"
                       >
-                        No results.
+                        Belum ada data pelanggan.
                       </TableCell>
                     </TableRow>
                   )}

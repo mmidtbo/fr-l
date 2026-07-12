@@ -21,7 +21,6 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
@@ -69,7 +68,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  fetchOrdersData,
   formatDate,
   formatRupiah,
   STATUS_LABELS,
@@ -122,29 +120,19 @@ export const schema = z.object({
   payment_status: z.enum(["pending", "lunas", "cicilan"]),
   estimated_done: z.string().nullable(),
   base_price: z.number(),
-  express_surcharge: z.number(),
-  created_at: z.string(),
-  condition_notes: z.string(),
-  notes: z.string(),
+  express_surcharge: z.number().nullable(),
+  created_at: z.string().nullable(),
+  condition_notes: z.string().nullable(),
+  notes: z.string().nullable(),
   picked_up_at: z.string().nullable(),
 });
 
 export type Order = z.infer<typeof schema>;
 
-const statusLabel: Record<string, string> = {
-  received: "Baru Masuk",
-  proses: "Diproses",
-  cuci: "Dicuci",
-  jemur: "Dijemur",
-  setrika: "Disetrika",
-  ready: "Siap Diambil",
-  picked_up: "Selesai",
-};
-
 const paymentLabel: Record<string, string> = {
   lunas: "Lunas",
-  belum: "Belum",
-  cicilan: "cicilan",
+  pending: "Belum Bayar",
+  cicilan: "Cicilan",
 };
 
 function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
@@ -181,7 +169,6 @@ type DataTableProps = {
   pagination: PaginationState;
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
   metadata: any;
-  userId?: string;
   onPaymentSuccess?: () => void;
   selectedRowIds?: Record<string, boolean>;
   onSelectedRowIdsChange?: (value: Record<string, boolean>) => void;
@@ -197,7 +184,6 @@ export function DataTable({
   pagination,
   setPagination,
   metadata,
-  userId,
   onPaymentSuccess,
   selectedRowIds,
   onSelectedRowIdsChange,
@@ -206,7 +192,11 @@ export function DataTable({
   const [localRowSelection, setLocalRowSelection] = React.useState({});
   const rowSelection = selectedRowIds ?? localRowSelection;
   const setRowSelection = React.useCallback(
-    (updaterOrValue: Record<string, boolean> | ((old: Record<string, boolean>) => Record<string, boolean>)) => {
+    (
+      updaterOrValue:
+        | Record<string, boolean>
+        | ((old: Record<string, boolean>) => Record<string, boolean>),
+    ) => {
       if (onSelectedRowIdsChange) {
         const next =
           typeof updaterOrValue === "function"
@@ -227,19 +217,7 @@ export function DataTable({
     [],
   );
 
-  console.log(metadata);
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  React.useEffect(() => {
-    getOrders();
-  }, [pagination.pageIndex, pagination.pageSize]);
-
-  async function getOrders() {
-    const response = await fetchOrdersData(
-      pagination.pageIndex + 1,
-      pagination.pageSize,
-    );
-    return response.ordersData;
-  }
 
   const sortableId = React.useId();
   const sensors = useSensors(
@@ -341,7 +319,6 @@ export function DataTable({
       header: "Status",
       cell: ({ row }) => {
         const s = row.original.status;
-        // console.log(s)
         return (
           <Badge variant="outline" className="px-1.5 text-muted-foreground">
             {s === "picked_up" ? (
@@ -349,7 +326,7 @@ export function DataTable({
             ) : (
               <IconClock className="mr-1 size-3" />
             )}
-            {statusLabel[s] ?? s}
+            {STATUS_LABELS[s] ?? s}
           </Badge>
         );
       },
@@ -430,7 +407,11 @@ export function DataTable({
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1 text-xs h-7"
+                className={
+                  STATUS_NEXT[row.original.status] === "picked_up"
+                    ? "gap-1 text-xs h-7 border-green-500 text-green-600 hover:text-green-600 dark:border-green-400 dark:text-green-400"
+                    : "gap-1 text-xs h-7"
+                }
                 onClick={() => onUpdateStatus(row.original)}
               >
                 {STATUS_LABELS[STATUS_NEXT[row.original.status]!]}
@@ -470,9 +451,7 @@ export function DataTable({
               <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem>Detail</DropdownMenuItem>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-36">
             <DropdownMenuItem onSelect={() => onReOrder?.(row.original)}>
               Pesanan Ulang
             </DropdownMenuItem>
@@ -510,7 +489,6 @@ export function DataTable({
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -547,12 +525,8 @@ export function DataTable({
             </SelectContent>
           </Select>
           <TabsList className="hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
-            <TabsTrigger value="all">
-              Semua <Badge variant="secondary">3</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="received">
-              Baru Masuk <Badge variant="secondary">2</Badge>
-            </TabsTrigger>
+            <TabsTrigger value="all">Semua</TabsTrigger>
+            <TabsTrigger value="received">Baru Masuk</TabsTrigger>
             <TabsTrigger value="proses">Diproses</TabsTrigger>
             <TabsTrigger value="cuci">Dicuci</TabsTrigger>
             <TabsTrigger value="jemur">Dijemur</TabsTrigger>
@@ -644,7 +618,7 @@ export function DataTable({
                         colSpan={columns.length}
                         className="h-24 text-center"
                       >
-                        No results.
+                        Belum ada data pesanan.
                       </TableCell>
                     </TableRow>
                   )}
@@ -741,7 +715,6 @@ export function DataTable({
           {selectedOrder && (
             <OrderReceipt
               order={selectedOrder}
-              userId={userId}
               onPaymentSuccess={() => {
                 setShowReceipt(false);
                 onPaymentSuccess?.();

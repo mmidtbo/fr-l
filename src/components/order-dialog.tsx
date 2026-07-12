@@ -26,14 +26,14 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { apiSafe } from "@/lib/api/axios";
 import type { Customer, ServicePrice } from "@/lib/types";
-import { CUSTOMERS, ORDERS } from "@/lib/types";
+import { CUSTOMERS, EXPRESS_MULTIPLIER, ORDERS } from "@/lib/types";
 import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-store";
 import React from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-export interface OrderInitialData {
+interface OrderInitialData {
   customerId: string;
   servicePriceId: string;
   quantity: number;
@@ -139,6 +139,7 @@ export function OrderDialog({
       onSubmit: formSchema,
     },
     onSubmit: async ({ value }) => {
+      if (submitting) return;
       setSubmitting(true);
 
       let custId = value.selectedCustId;
@@ -147,7 +148,7 @@ export function OrderDialog({
         const res = await apiSafe.post(CUSTOMERS, {
           name: value.newCustName.trim(),
           phone: value.newCustPhone.trim(),
-          address: value.newCustAddress.trim(),
+          address: value.newCustAddress.trim() || undefined,
         });
         if (res.error) {
           toast.error(res.error);
@@ -183,30 +184,46 @@ export function OrderDialog({
 
       toast.success("Pesanan berhasil dibuat!");
       form.reset();
+      setShowConditionNotes(false);
+      setShowNotes(false);
       onOpenChange(false);
       onSuccess?.();
       setSubmitting(false);
     },
   });
 
+  const wasOpen = React.useRef(false);
+  const paymentEdited = React.useRef(false);
   React.useEffect(() => {
-    if (open && initialData) {
-      form.reset({
-        custMode: "existing",
-        selectedCustId: initialData.customerId,
-        newCustName: "",
-        newCustPhone: "",
-        newCustAddress: "",
-        servicePriceId: initialData.servicePriceId,
-        quantity: String(initialData.quantity),
-        isExpress: initialData.isExpress ?? false,
-        conditionNotes: initialData.conditionNotes,
-        notes: initialData.notes,
-        payNow: false,
-        paymentMethod: "",
-        paymentAmount: "",
-      });
+    // Hanya reset saat dialog baru dibuka (transisi tertutup -> terbuka),
+    // agar input pengguna tidak tertimpa pada setiap render.
+    if (open && !wasOpen.current) {
+      paymentEdited.current = false;
+      if (initialData) {
+        form.reset({
+          custMode: "existing",
+          selectedCustId: initialData.customerId,
+          newCustName: "",
+          newCustPhone: "",
+          newCustAddress: "",
+          servicePriceId: initialData.servicePriceId,
+          quantity: String(initialData.quantity),
+          isExpress: initialData.isExpress ?? false,
+          conditionNotes: initialData.conditionNotes,
+          notes: initialData.notes,
+          payNow: false,
+          paymentMethod: "",
+          paymentAmount: "",
+        });
+        setShowConditionNotes(!!initialData.conditionNotes);
+        setShowNotes(!!initialData.notes);
+      } else {
+        form.reset();
+        setShowConditionNotes(false);
+        setShowNotes(false);
+      }
     }
+    wasOpen.current = open;
   }, [open, initialData]);
 
   const custMode = useStore(form.store, (state) => state.values.custMode);
@@ -224,6 +241,8 @@ export function OrderDialog({
   const quantity = useStore(form.store, (state) => state.values.quantity);
 
   const isExpress = useStore(form.store, (state) => state.values.isExpress);
+
+  const payNow = useStore(form.store, (state) => state.values.payNow);
 
   const totalPrice = React.useMemo(() => {
     if (!selectedService) return 0;
@@ -246,11 +265,21 @@ export function OrderDialog({
     }
 
     if (isExpress) {
-      total *= 2; // +100%
+      total *= EXPRESS_MULTIPLIER;
     }
 
     return total;
   }, [selectedService, quantity, isExpress]);
+
+  React.useEffect(() => {
+    if (!payNow) {
+      paymentEdited.current = false;
+      return;
+    }
+    if (!paymentEdited.current) {
+      form.setFieldValue("paymentAmount", String(totalPrice));
+    }
+  }, [payNow, totalPrice]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -636,9 +665,10 @@ export function OrderDialog({
                               step="any"
                               value={field.state.value}
                               onBlur={field.handleBlur}
-                              onChange={(e) =>
-                                field.handleChange(e.target.value)
-                              }
+                              onChange={(e) => {
+                                paymentEdited.current = true;
+                                field.handleChange(e.target.value);
+                              }}
                               aria-invalid={isInvalid}
                             />
                             {isInvalid && (

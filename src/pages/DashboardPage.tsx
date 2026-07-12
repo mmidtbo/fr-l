@@ -2,6 +2,7 @@ import { ChartLineDots } from "@/components/chart-line-dashboard";
 import { ChartPieDonutText } from "@/components/chart-pie-demo";
 import { DataTable } from "@/components/demo-pages/dashboard-data-table";
 import { SectionCards } from "@/components/section-cards";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import api, { apiSafe } from "@/lib/api/axios";
@@ -42,6 +43,8 @@ export function DashboardPage() {
     },
     isLoading,
     isPending,
+    isError,
+    refetch,
   } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
@@ -89,6 +92,7 @@ export function DashboardPage() {
 
   const line_chart = useQuery({
     queryKey: ["line_chart"],
+    enabled: isOwner,
     queryFn: async () => {
       const data = await apiSafe.get<LineChart>(LINE_CHART);
       return data.data?.data;
@@ -97,6 +101,7 @@ export function DashboardPage() {
 
   const pie_chart = useQuery({
     queryKey: ["pie_chart"],
+    enabled: isOwner,
     queryFn: async () => {
       const data = await apiSafe.get<BC>(BAR_CHART);
       return data.data?.data;
@@ -116,6 +121,19 @@ export function DashboardPage() {
           ))}
         </div>
         <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center lg:px-6">
+        <p className="text-sm text-muted-foreground">
+          Gagal memuat data dashboard.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Coba Lagi
+        </Button>
       </div>
     );
   }

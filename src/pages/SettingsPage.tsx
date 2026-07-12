@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiSafe } from "@/lib/api/axios";
 import type { ServicePrice } from "@/lib/types";
-import { formatRupiah, SERVICE } from "@/lib/types";
+import { formatRupiah, EXPRESS_MULTIPLIER, SERVICE } from "@/lib/types";
 import { RefreshCw, Save, Settings } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
@@ -96,7 +96,7 @@ export function SettingsPage() {
   const expressPrice = React.useMemo(() => {
     const perKg = activePrices.find((p) => p.pricing_type === "per_kg");
     if (!perKg) return 0;
-    return getEffectivePrice(perKg) * 1.5;
+    return getEffectivePrice(perKg) * EXPRESS_MULTIPLIER;
   }, [editValues, activePrices]);
 
   return (
@@ -295,7 +295,7 @@ export function SettingsPage() {
                   {expressPrice > 0 && (
                     <tr className="bg-amber-50/50 dark:bg-amber-950/10">
                       <td className="py-2 font-medium text-amber-700 dark:text-amber-400">
-                        Express (+50%)
+                        Express (+100%)
                       </td>
                       {[1, 3, 5, 10].map((qty) => (
                         <td

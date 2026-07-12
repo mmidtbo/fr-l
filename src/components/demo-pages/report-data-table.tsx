@@ -21,7 +21,6 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
@@ -109,7 +108,6 @@ type DataTableProps = {
 };
 
 export function DataTable({ data, totalRevenue }: DataTableProps) {
-  console.log("data: ", data);
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -249,7 +247,6 @@ export function DataTable({ data, totalRevenue }: DataTableProps) {
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -304,7 +301,7 @@ export function DataTable({ data, totalRevenue }: DataTableProps) {
                         colSpan={columns.length}
                         className="h-24 text-center"
                       >
-                        No results.
+                        Belum ada data.
                       </TableCell>
                     </TableRow>
                   )}

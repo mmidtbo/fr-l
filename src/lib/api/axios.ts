@@ -1,6 +1,7 @@
 import axios, { type AxiosResponse } from "axios";
 import { REFRESH } from "../types";
 import { toast } from "sonner";
+import { queryClient } from "../queryClient";
 
 export type ApiResult<T> =
   | { data: T; error: null }
@@ -17,36 +18,59 @@ const api = axios.create({
 
 const refreshApi = axios.create({
   baseURL: import.meta.env.VITE_URL,
+  timeout: 10000,
   withCredentials: true,
 });
 
+// login gagal, cek sesi awal, dan refresh.
+function isAuthEndpoint(url: string | undefined): boolean {
+  if (!url) return false;
+  return url.includes("/auth/login") || url.includes("/token/refresh");
+}
+
+function extractErrorMessage(error: any): string {
+  const data = error.response?.data;
+  if (data?.errors) {
+    return Array.isArray(data.errors)
+      ? data.errors
+          .map((e: { message?: string }) => e?.message)
+          .filter(Boolean)
+          .join(", ") || "Terjadi kesalahan"
+      : String(data.errors);
+  }
+  return error.message || "Terjadi kesalahan";
+}
+
 api.interceptors.response.use(
   (response: AxiosResponse) => {
-    console.log("interceptors response");
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
-    console.log(originalRequest);
 
     // Handle 401: token invalid/expired
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthEndpoint(originalRequest.url)
+    ) {
       originalRequest._retry = true;
 
       try {
         await refreshApi.get(REFRESH);
         return api(originalRequest);
       } catch {
+        queryClient.setQueryData(["auth_user"], null);
         toast.error("Sesi Anda telah berakhir. Silakan login kembali.");
-        return Promise.reject(error);
+        if (window.location.pathname !== "/login") {
+          window.location.assign("/login");
+        }
+        return Promise.reject(new Error("Unauthorized"));
       }
     }
 
-    // Extract pesan error
-    const message =
-      error.response?.data?.message || error.message || "Terjadi kesalahan";
-
-    return Promise.reject(new Error(message));
+    return Promise.reject(new Error(extractErrorMessage(error)));
   },
 );
 

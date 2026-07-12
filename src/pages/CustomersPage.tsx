@@ -2,6 +2,17 @@ import { DataTable } from "@/components/demo-pages/customer-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -10,20 +21,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
 import { apiSafe } from "@/lib/api/axios";
 import {
   CUSTOMERS,
   CustomersPaginationrequest,
+  type Customer,
   type CustomerMetadata,
   type CustomerResponse,
   type CustomersRaw,
 } from "@/lib/types";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, Search, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 
 export function CustomersPage() {
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner";
+  const queryClient = useQueryClient();
+
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
@@ -42,17 +59,22 @@ export function CustomersPage() {
   const [formError, setFormError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
-  const customers = useQuery({
-    queryKey: ["customers", pagination.pageIndex],
-    queryFn: async (): Promise<CustomersRaw> => {
-      const [response] = await Promise.all([
-        CustomersPaginationrequest(
-          pagination.pageIndex + 1,
-          pagination.pageSize,
-        ),
-      ]);
+  const [deleteTarget, setDeleteTarget] = React.useState<Customer | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
-      let data: CustomersRaw = {
+  const customers = useQuery({
+    queryKey: ["customers", pagination.pageIndex, pagination.pageSize],
+    queryFn: async (): Promise<CustomersRaw> => {
+      const response = await CustomersPaginationrequest(
+        pagination.pageIndex + 1,
+        pagination.pageSize,
+      );
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const data: CustomersRaw = response.data ?? {
         data: [],
         page: 0,
         take: 0,
@@ -60,15 +82,6 @@ export function CustomersPage() {
         status_code: 0,
       };
 
-      if (response?.data) {
-        data = {
-          data: response.data.data,
-          page: response.data.page,
-          take: response.data.take,
-          total: response.data.total,
-          status_code: response.data.status_code,
-        };
-      }
       setMetadataFirst({
         page: data.page,
         take: data.take,
@@ -78,66 +91,78 @@ export function CustomersPage() {
     },
   });
 
-  async function handleSubmit(e: React.ChangeEvent): Promise<void> {
+  const allCustomers = customers.data?.data ?? [];
+
+  const filteredCustomers = React.useMemo(() => {
+    if (!search.trim()) return allCustomers;
+    const q = search.toLowerCase();
+    return allCustomers.filter(
+      (c) =>
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.includes(q) ||
+        c.address?.toLowerCase().includes(q),
+    );
+  }, [allCustomers, search]);
+
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
 
     setFormError("");
-    setSubmitting(true);
 
     if (!name.trim()) {
       setFormError("Nama tidak boleh kosong.");
-      setSubmitting(false);
       return;
     }
 
     if (!phone.trim()) {
       setFormError("Nomor HP tidak boleh kosong.");
-      setSubmitting(false);
       return;
     }
 
-    if (!/^08[0-9]{8,11}$/.test(phone.replace(/\s/g, ""))) {
+    if (!/^08[0-9]{6,13}$/.test(phone.replace(/\s/g, ""))) {
       setFormError("Format nomor HP tidak valid (contoh: 08123456789).");
-      setSubmitting(false);
       return;
     }
+
+    setSubmitting(true);
 
     const response = await apiSafe.post<CustomerResponse>(CUSTOMERS, {
-      name,
-      phone,
-      address,
+      name: name.trim(),
+      phone: phone.trim(),
+      address: address.trim() || undefined,
     });
 
     if (response.error) {
-      setFormError(response.error);
-      toast.error(response.error);
+      const message = /unique|sudah|already|conflict/i.test(response.error)
+        ? "Nomor telepon sudah digunakan."
+        : response.error;
+      setFormError(message);
+      toast.error(message);
       setSubmitting(false);
       return;
     }
 
-    const result = response.data;
-
-    if (result?.status_code === 201) {
-      toast.success("Customer berhasil ditambahkan");
-
-      setName("");
-      setPhone("");
-      setAddress("");
-
-      setShowDialog(false);
-      setSubmitting(false);
-      return;
-    }
-
-    if (result?.status_code === 409) {
-      setFormError("Nomor telepon sudah digunakan.");
-      toast.error("Nomor telepon sudah digunakan");
-      setSubmitting(false);
-      return;
-    }
-
-    setFormError("Terjadi kesalahan.");
+    toast.success("Pelanggan berhasil ditambahkan.");
+    setName("");
+    setPhone("");
+    setAddress("");
+    setShowDialog(false);
     setSubmitting(false);
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const res = await apiSafe.delete(`${CUSTOMERS}/${deleteTarget.id}`);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(`Pelanggan ${deleteTarget.name} berhasil dihapus.`);
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    }
+    setDeleting(false);
+    setDeleteTarget(null);
   }
 
   return (
@@ -180,17 +205,38 @@ export function CustomersPage() {
       <div className="mx-4 lg:mx-6 text-sm text-muted-foreground">
         Menampilkan{" "}
         <span className="font-medium text-foreground">
-          {metadata_first.total}
+          {filteredCustomers.length}
         </span>{" "}
-        dari <span className="font-medium text-foreground">{}</span> pelanggan
+        dari{" "}
+        <span className="font-medium text-foreground">
+          {metadata_first.total ?? 0}
+        </span>{" "}
+        pelanggan
       </div>
 
-      <DataTable
-        data={customers.data?.data ?? []}
-        metadata={metadata_first}
-        pagination={pagination}
-        setPagination={setPagination}
-      />
+      {customers.isError ? (
+        <div className="mx-4 lg:mx-6 rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-center">
+          <p className="text-sm text-destructive">
+            Gagal memuat data pelanggan.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => customers.refetch()}
+          >
+            Coba Lagi
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          data={filteredCustomers}
+          metadata={metadata_first}
+          pagination={pagination}
+          setPagination={setPagination}
+          onDelete={isOwner ? setDeleteTarget : undefined}
+        />
+      )}
 
       {/* Add Customer Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -240,6 +286,7 @@ export function CustomersPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setShowDialog(false)}
+                disabled={submitting}
               >
                 Batal
               </Button>
@@ -250,6 +297,37 @@ export function CustomersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Trash2 className="size-5" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
+            <AlertDialogDescription>
+              Data pelanggan <strong>{deleteTarget?.name}</strong> akan dihapus
+              permanen. Lanjutkan?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Menghapus..." : "Ya, Hapus"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

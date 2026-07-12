@@ -1,11 +1,10 @@
-// import { BarChartOrdersReport } from "@/components/barchart-orders-report-page";
 import { BarChartReport } from "@/components/barchart-report-page";
 import { BarChartOrdersReportDemo } from "@/components/barchart-report-page-demo";
-// import { ChartPieReport } from "@/components/chart-pie-report-page";
 import { ChartPieDonutReport } from "@/components/chart-pie-report-page-demo";
 import { DataTable } from "@/components/demo-pages/report-data-table";
 import { ChartLineReport } from "@/components/line-chart-report-page";
 import { SectionCards } from "@/components/section-cards-reports";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -83,18 +82,24 @@ export function ReportsPage() {
     return <SpinnerEmpty />;
   }
 
-  const orderTotal =
-    Number(dbh.data?.ordersData?.total) === undefined
-      ? 0
-      : Number(dbh.data?.ordersData?.total);
+  if (dbh.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center lg:px-6">
+        <p className="text-sm text-muted-foreground">
+          Gagal memuat data laporan.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => dbh.refetch()}>
+          Coba Lagi
+        </Button>
+      </div>
+    );
+  }
 
-  const totalRevenue = Number(
-    dbh.data?.incomeData?.data.income == undefined
-      ? 0
-      : dbh.data.incomeData?.data.income,
-  );
+  const orderTotal = Number(dbh.data?.ordersData?.total ?? 0) || 0;
+
+  const totalRevenue = Number(dbh.data?.incomeData?.data.income ?? 0) || 0;
   const avgPerDay =
-    Number(orderTotal) > 0 ? Number(dbh.data?.avgData?.data.avg_day) : 0;
+    orderTotal > 0 ? Number(dbh.data?.avgData?.data.avg_day ?? 0) || 0 : 0;
   const uniqueCustomers = new Set(
     dbh.data?.ordersData?.data.map((o) => o.customer_id),
   ).size;
@@ -134,7 +139,6 @@ export function ReportsPage() {
         <ChartLineReport data={dailyChartData} />
         <BarChartOrdersReportDemo data={dailyChartData} />
         <ChartPieDonutReport data={sortedServiceData} />
-        {/* <ChartPieReport data={sortedServiceData} /> */}
         <BarChartReport data={sortedServiceData} />
       </div>
 

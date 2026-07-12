@@ -22,7 +22,6 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
@@ -104,8 +103,8 @@ const statusLabel: Record<string, string> = {
 
 const paymentLabel: Record<string, string> = {
   lunas: "Lunas",
-  belum: "Belum",
-  cicilan: "cicilan",
+  pending: "Belum Bayar",
+  cicilan: "Cicilan",
 };
 
 function formatDate(dateStr: string | null): string {
@@ -334,7 +333,6 @@ export function DataTable({ data }: { data: Order[] }) {
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -434,7 +432,7 @@ export function DataTable({ data }: { data: Order[] }) {
                       colSpan={columns.length}
                       className="h-24 text-center"
                     >
-                      No results.
+                      Belum ada data.
                     </TableCell>
                   </TableRow>
                 )}

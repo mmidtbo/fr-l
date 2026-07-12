@@ -19,6 +19,7 @@ import {
   IconSettings,
   IconReportAnalytics,
 } from "@tabler/icons-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const data = {
   navMain: [
@@ -41,16 +42,21 @@ const data = {
       title: "Laporan",
       url: "/reports",
       icon: IconReportAnalytics,
+      ownerOnly: true,
     },
     {
       title: "Pengaturan",
       url: "/settings",
       icon: IconSettings,
+      ownerOnly: true,
     },
   ],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner";
+  const navItems = data.navMain.filter((item) => !item.ownerOnly || isOwner);
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -73,7 +79,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

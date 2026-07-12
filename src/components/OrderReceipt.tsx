@@ -7,19 +7,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import api from "@/lib/api/axios";
+import { apiSafe } from "@/lib/api/axios";
 import type { Orders } from "@/lib/types";
 import { formatRupiah, PAYMENTS, STATUS_LABELS } from "@/lib/types";
 import { Printer, WashingMachine } from "lucide-react";
 import React from "react";
+import { toast } from "sonner";
 
 interface OrderReceiptProps {
   order: Orders;
-  userId?: string;
   onPaymentSuccess?: () => void;
 }
 
-export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptProps) {
+export function OrderReceipt({ order, onPaymentSuccess }: OrderReceiptProps) {
   const [paying, setPaying] = React.useState(false);
   const [payMethod, setPayMethod] = React.useState("cash");
   const [payAmount, setPayAmount] = React.useState(order.total_price);
@@ -48,21 +48,27 @@ export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptPr
       setPayError("Jumlah pembayaran harus lebih dari 0");
       return;
     }
+    if (paying) return;
     setPaying(true);
     setPayError("");
-    try {
-      await api.post(PAYMENTS, {
-        order_id: order.id,
-        method: payMethod,
-        amount: payAmount,
-        paid_by: userId,
-      });
-      onPaymentSuccess?.();
-    } catch (err: any) {
-      setPayError(err.message || "Gagal memproses pembayaran");
-    } finally {
+
+    const res = await apiSafe.post(PAYMENTS, {
+      order_id: order.id,
+      method: payMethod,
+      amount: payAmount,
+      paid_by: order.customers?.id,
+    });
+
+    if (res.error) {
+      setPayError(res.error);
+      toast.error(res.error);
       setPaying(false);
+      return;
     }
+
+    toast.success("Pembayaran berhasil dicatat.");
+    setPaying(false);
+    onPaymentSuccess?.();
   };
 
   const handlePrint = () => {
@@ -158,7 +164,7 @@ export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptPr
             <span>Harga Dasar</span>
             <span>{formatRupiah(order.base_price)}</span>
           </div>
-          {order.express_surcharge > 0 && (
+          {(order.express_surcharge ?? 0) > 0 && (
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>Biaya Express</span>
               <span>{formatRupiah(order.express_surcharge)}</span>
@@ -176,7 +182,9 @@ export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptPr
         <div className="my-3">
           <div className="flex justify-between">
             <span className="text-muted-foreground">
-              {order.status === "picked_up" ? "Diambil Pada" : "Estimasi Selesai"}
+              {order.status === "picked_up"
+                ? "Diambil Pada"
+                : "Estimasi Selesai"}
             </span>
             <span className="font-medium text-right max-w-[180px]">
               {order.status === "picked_up" ? pickedUpDate : estimatedDate}
@@ -249,10 +257,14 @@ export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptPr
             </Select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
+            <label
+              htmlFor="pay-amount"
+              className="text-xs text-muted-foreground mb-1 block"
+            >
               Jumlah Dibayar
             </label>
             <input
+              id="pay-amount"
               type="number"
               min={0}
               step="any"
@@ -261,9 +273,7 @@ export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptPr
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
             />
           </div>
-          {payError && (
-            <p className="text-xs text-red-500">{payError}</p>
-          )}
+          {payError && <p className="text-xs text-red-500">{payError}</p>}
           <Button
             className="w-full gap-2"
             onClick={handlePay}
@@ -274,8 +284,13 @@ export function OrderReceipt({ order, userId, onPaymentSuccess }: OrderReceiptPr
         </div>
       )}
 
-      <Button onClick={handlePrint} className="w-full gap-2 mt-4">
+      <Button
+        onClick={handlePrint}
+        variant="outline"
+        className="w-full gap-2 mt-4"
+      >
         <Printer className="size-4" />
+        Cetak Nota
       </Button>
     </div>
   );
