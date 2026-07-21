@@ -72,6 +72,7 @@ export function SettingsPage() {
       const value = parseFloat(vals.price_min) || 0;
       const res = await apiSafe.put(
         `${SERVICE}/${price.id}?value=${value}`,
+        {},
       );
       if (res.error) {
         toast.error(res.error);
