@@ -69,10 +69,10 @@ export function SettingsPage() {
     for (const price of prices) {
       const vals = editValues[price.id];
       if (!vals) continue;
-      const res = await apiSafe.put(`${SERVICE}/${price.id}`, {
-        price_min: parseFloat(vals.price_min) || 0,
-        price_max: vals.price_max ? parseFloat(vals.price_max) : null,
-      });
+      const value = parseFloat(vals.price_min) || 0;
+      const res = await apiSafe.put(
+        `${SERVICE}/${price.id}?value=${value}`,
+      );
       if (res.error) {
         toast.error(res.error);
         hasError = true;
