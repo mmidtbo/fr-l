@@ -29,6 +29,7 @@ export const LINE_CHART = `${URL}/dashboard/orderweek`;
 export const BAR_CHART = `${URL}/dashboard/servicecount`;
 export const PERCENTAGE_DIFF = `${URL}/orders/percentage`;
 export const ORDERS_COUNT = `${URL}/orders/countorders`;
+export const ORDERS_EXPRESS = `${URL}/orders/express`;
 export const PAYMENTS = `${URL}/payments`;
 
 export type SignOutResponse = {
@@ -247,6 +248,7 @@ export interface DashboardStats {
   overdueOrders: number;
   percentageDiff: number;
   ordersCount: number;
+  expressOrders: number;
 }
 
 export interface DashboardResponseRaw {

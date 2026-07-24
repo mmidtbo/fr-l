@@ -15,6 +15,7 @@ import {
   IconPackageExport,
   IconClockExclamation,
   IconCalendarExclamation,
+  IconFlame,
 } from "@tabler/icons-react";
 import { Skeleton } from "./ui/skeleton";
 
@@ -58,11 +59,19 @@ export function SectionCards({ stats, isOwner, isLoading }: SectionCardsProps) {
       color: "text-amber-600",
       bg: "bg-amber-50 dark:bg-amber-950/30",
     },
+    // {
+    //   title: "Express",
+    //   value: stats.expressOrders,
+    //   subtitle: "Total order express aktif",
+    //   icon: IconFlame,
+    //   color: "text-amber-600",
+    //   bg: "bg-amber-50 dark:bg-amber-950/30",
+    // },
   ];
 
   const gridColl = isOwner
-    ? "grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card"
-    : "grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-3 @5xl/main:grid-cols-3 dark:*:data-[slot=card]:bg-card";
+    ? "grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-5 dark:*:data-[slot=card]:bg-card"
+    : "grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-3 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card";
 
   return (
     <div className={gridColl}>
@@ -215,6 +224,28 @@ export function SectionCards({ stats, isOwner, isLoading }: SectionCardsProps) {
             Perlu tindakan segera
           </div>
           <div className="text-muted-foreground">{statCards[3].subtitle}</div>
+        </CardFooter>
+      </Card>
+
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Express</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {isLoading ? (
+              <Skeleton className="h-12 w-12 rounded-full" />
+            ) : (
+              stats.expressOrders
+            )}
+          </CardTitle>
+          <CardAction>
+            <IconFlame />
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            Order dengan layanan express
+          </div>
+          <div className="text-muted-foreground">Total order express aktif</div>
         </CardFooter>
       </Card>
     </div>

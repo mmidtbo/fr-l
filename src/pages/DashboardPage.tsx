@@ -17,6 +17,7 @@ import {
   BAR_CHART,
   LINE_CHART,
   ORDERS_COUNT,
+  ORDERS_EXPRESS,
   PERCENTAGE_DIFF,
   STATS,
 } from "@/lib/types";
@@ -38,6 +39,7 @@ export function DashboardPage() {
         todayRevenue: 0,
         percentageDiff: 0,
         ordersCount: 0,
+        expressOrders: 0,
       },
       recentOrders: [],
     },
@@ -48,10 +50,11 @@ export function DashboardPage() {
   } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
-      const [stats, percentageDiff, ordersCount] = await Promise.all([
+      const [stats, percentageDiff, ordersCount, expressOrders] = await Promise.all([
         apiSafe.get<DashboardResponseRaw>(STATS),
         apiSafe.get<PercentageDiffRaw>(PERCENTAGE_DIFF),
         api.get(ORDERS_COUNT),
+        api.get(ORDERS_EXPRESS),
       ]);
 
       const stats_all = {
@@ -61,6 +64,7 @@ export function DashboardPage() {
         todayRevenue: Number(stats.data?.data.stats.todayRevenue),
         percentageDiff: Number(percentageDiff.data?.data.percentage_diff),
         ordersCount: Number(ordersCount.data),
+        expressOrders: Number(expressOrders.data),
       };
 
       const recentOrders = stats.data?.data.recentOrders.map(
@@ -143,6 +147,7 @@ export function DashboardPage() {
       <SectionCards
         stats={{
           ordersCount: Number(data?.stats.ordersCount),
+          expressOrders: Number(data?.stats.expressOrders),
           percentageDiff: Number(data?.stats.percentageDiff),
           overdueOrders: Number(data?.stats.overdueOrders),
           pendingPickup: Number(data?.stats.pendingPickup),
