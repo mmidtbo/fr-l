@@ -403,23 +403,29 @@ export function DataTable({
             >
               <IconReceipt className="size-3.5" />
             </Button>
-            {STATUS_NEXT[row.original.status] && (
-              <Button
-                variant="outline"
-                size="sm"
-                className={
-                  STATUS_NEXT[row.original.status] === "picked_up"
-                    ? "gap-1 text-xs h-7 border-green-500 text-green-600 hover:text-green-600 dark:border-green-400 dark:text-green-400"
-                    : "gap-1 text-xs h-7"
-                }
-                onClick={() => onUpdateStatus(row.original)}
-              >
-                {STATUS_LABELS[STATUS_NEXT[row.original.status]!]}
-                <IconChevronRight className="size-3" />
-              </Button>
-            )}
-            {!STATUS_NEXT[row.original.status] &&
-              row.original.payment_status !== "lunas" && (
+            {STATUS_NEXT[row.original.status] &&
+              !(
+                row.original.status === "ready" &&
+                row.original.payment_status !== "lunas"
+              ) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={
+                    STATUS_NEXT[row.original.status] === "picked_up"
+                      ? "gap-1 text-xs h-7 border-green-500 text-green-600 hover:text-green-600 dark:border-green-400 dark:text-green-400"
+                      : "gap-1 text-xs h-7"
+                  }
+                  onClick={() => onUpdateStatus(row.original)}
+                >
+                  {STATUS_LABELS[STATUS_NEXT[row.original.status]!]}
+                  <IconChevronRight className="size-3" />
+                </Button>
+              )}
+            {((row.original.status === "ready" &&
+              row.original.payment_status !== "lunas") ||
+              (!STATUS_NEXT[row.original.status] &&
+                row.original.payment_status !== "lunas")) && (
                 <Button
                   variant="outline"
                   size="sm"
