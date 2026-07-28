@@ -358,6 +358,7 @@ export function OrderDialog({
                     return (
                       <Field data-invalid={isInvalid}>
                         <Input
+                          placeholder="Nama"
                           value={field.state.value}
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
@@ -401,6 +402,7 @@ export function OrderDialog({
                     return (
                       <Field data-invalid={isInvalid}>
                         <Input
+                          placeholder="Alamat (cth: Jl. Jatiwaringin 89)"
                           value={field.state.value}
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
