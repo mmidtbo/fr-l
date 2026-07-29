@@ -31,16 +31,12 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { z } from "zod";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
@@ -62,7 +58,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   IconCircleCheckFilled,
-  IconDotsVertical,
   IconLayoutColumns,
   IconChevronDown,
   IconChevronsLeft,
@@ -72,6 +67,12 @@ import {
   IconClock,
   IconFlameFilled,
 } from "@tabler/icons-react";
+import {
+  formatDate,
+  formatRupiah,
+  paymentLabel,
+  STATUS_LABELS,
+} from "@/lib/types";
 
 export const schema = z.object({
   id: z.string(),
@@ -82,7 +83,15 @@ export const schema = z.object({
   is_express: z.boolean().optional(),
   quantity: z.number(),
   total_price: z.number(),
-  status: z.string(),
+  status: z.enum([
+    "received",
+    "proses",
+    "cuci",
+    "jemur",
+    "setrika",
+    "ready",
+    "picked_up",
+  ]),
   payment_status: z.string(),
   estimated_done: z.string().nullable(),
   picked_up_at: z.string().nullable(),
@@ -91,65 +100,7 @@ export const schema = z.object({
 
 export type Order = z.infer<typeof schema>;
 
-const statusLabel: Record<string, string> = {
-  received: "Baru Masuk",
-  proses: "Diproses",
-  cuci: "Dicuci",
-  jemur: "Dijemur",
-  setrika: "Disetrika",
-  ready: "Siap Diambil",
-  picked_up: "Selesai",
-};
-
-const paymentLabel: Record<string, string> = {
-  lunas: "Lunas",
-  pending: "Belum Bayar",
-  cicilan: "Cicilan",
-};
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "-";
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(dateStr));
-}
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(price);
-}
-
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      </div>
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
   {
     accessorKey: "order_code",
     header: "Kode Order",
@@ -191,7 +142,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: "Total",
     cell: ({ row }) => (
       <div className="font-medium tabular-nums">
-        {formatPrice(row.original.total_price)}
+        {formatRupiah(row.original.total_price)}
       </div>
     ),
   },
@@ -200,7 +151,6 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: "Status",
     cell: ({ row }) => {
       const s = row.original.status;
-      // console.log(s)
       return (
         <Badge variant="outline" className="px-1.5 text-muted-foreground">
           {s === "picked_up" ? (
@@ -208,7 +158,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           ) : (
             <IconClock className="mr-1 size-3" />
           )}
-          {statusLabel[s] ?? s}
+          {STATUS_LABELS[s] ?? s}
         </Badge>
       );
     },
@@ -239,29 +189,6 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       </div>
     ),
   },
-  {
-    id: "actions",
-    cell: () => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
-            size="icon"
-          >
-            <IconDotsVertical />
-            <span className="sr-only">Open menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem>Detail</DropdownMenuItem>
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">Hapus</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-  },
 ];
 
 function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
@@ -271,7 +198,6 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 
   return (
     <TableRow
-      data-state={row.getIsSelected() && "selected"}
       data-dragging={isDragging}
       ref={setNodeRef}
       className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
@@ -290,7 +216,6 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 }
 
 export function DataTable({ data }: { data: Order[] }) {
-  const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -320,13 +245,10 @@ export function DataTable({ data }: { data: Order[] }) {
     state: {
       sorting,
       columnVisibility,
-      rowSelection,
       columnFilters,
       pagination,
     },
     getRowId: (row) => row.id,
-    enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -416,7 +338,7 @@ export function DataTable({ data }: { data: Order[] }) {
                   </TableRow>
                 ))}
               </TableHeader>
-              <TableBody className="**:data-[slot=table-cell]:first:w-8">
+              <TableBody>
                 {table.getRowModel().rows?.length ? (
                   <SortableContext
                     items={dataIds}
@@ -441,10 +363,6 @@ export function DataTable({ data }: { data: Order[] }) {
           </DndContext>
         </div>
         <div className="flex items-center justify-between px-4">
-          <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} row(s) selected.
-          </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
               <Label htmlFor="rows-per-page" className="text-sm font-medium">

@@ -70,6 +70,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   formatDate,
   formatRupiah,
+  paymentLabel,
   STATUS_LABELS,
   STATUS_NEXT,
 } from "@/lib/types";
@@ -128,12 +129,6 @@ export const schema = z.object({
 });
 
 export type Order = z.infer<typeof schema>;
-
-const paymentLabel: Record<string, string> = {
-  lunas: "Lunas",
-  pending: "Belum Bayar",
-  cicilan: "Cicilan",
-};
 
 function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
@@ -426,19 +421,19 @@ export function DataTable({
               row.original.payment_status !== "lunas") ||
               (!STATUS_NEXT[row.original.status] &&
                 row.original.payment_status !== "lunas")) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 text-xs h-7"
-                  onClick={() => {
-                    setSelectedOrder({ ...row.original });
-                    setShowReceipt(true);
-                  }}
-                >
-                  <IconCash className="size-3" />
-                  Bayar
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs h-7"
+                onClick={() => {
+                  setSelectedOrder({ ...row.original });
+                  setShowReceipt(true);
+                }}
+              >
+                <IconCash className="size-3" />
+                Bayar
+              </Button>
+            )}
           </div>
         </div>
       ),

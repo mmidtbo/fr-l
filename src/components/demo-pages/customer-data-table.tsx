@@ -35,7 +35,6 @@ import { z } from "zod";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,7 +90,6 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 
   return (
     <TableRow
-      data-state={row.getIsSelected() && "selected"}
       data-dragging={isDragging}
       ref={setNodeRef}
       className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
@@ -124,7 +122,6 @@ export function DataTable({
   setPagination,
   onDelete,
 }: DataTableProps) {
-  const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -146,34 +143,6 @@ export function DataTable({
 
   const columns: ColumnDef<z.infer<typeof schema>>[] = [
     {
-      id: "select",
-      header: ({ table }) => (
-        <div className="flex items-center justify-center">
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className="flex items-center justify-center">
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        </div>
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
       accessorKey: "customer_name",
       header: "Customer",
       cell: ({ row }) => (
@@ -189,7 +158,7 @@ export function DataTable({
       cell: ({ row }) => (
         <div className="w-32">
           <Badge variant="outline" className="px-1.5 text-muted-foreground">
-            {row.original.phone}
+            {row.original.phone || "-"}
           </Badge>
         </div>
       ),
@@ -198,7 +167,7 @@ export function DataTable({
       accessorKey: "alamat",
       header: "Alamat",
       cell: ({ row }) => (
-        <div className="tabular-nums">{row.original.address}</div>
+        <div className="tabular-nums">{row.original.address || "-"}</div>
       ),
     },
     {
@@ -251,13 +220,10 @@ export function DataTable({
     state: {
       sorting,
       columnVisibility,
-      rowSelection,
       columnFilters,
       pagination,
     },
     getRowId: (row) => row.id,
-    enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -302,7 +268,7 @@ export function DataTable({
                     </TableRow>
                   ))}
                 </TableHeader>
-                <TableBody className="**:data-[slot=table-cell]:first:w-8">
+                <TableBody>
                   {table.getRowModel().rows?.length ? (
                     <SortableContext
                       items={dataIds}
@@ -327,10 +293,6 @@ export function DataTable({
             </DndContext>
           </div>
           <div className="flex items-center justify-between px-4">
-            <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-              {table.getFilteredSelectedRowModel().rows.length} of{" "}
-              {metadata?.total} row(s) selected.
-            </div>
             <div className="flex w-full items-center gap-8 lg:w-fit">
               <div className="hidden items-center gap-2 lg:flex">
                 <Label htmlFor="rows-per-page" className="text-sm font-medium">

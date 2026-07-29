@@ -3,6 +3,11 @@ import { apiSafe } from "./api/axios";
 export type UserRole = "owner" | "karyawan";
 
 export type PaymentStatus = "pending" | "lunas" | "cicilan";
+export const paymentLabel: Record<string, string> = {
+  lunas: "Lunas",
+  pending: "Belum Bayar",
+  cicilan: "Cicilan",
+};
 
 export type OrderStatus =
   | "received"
@@ -234,10 +239,10 @@ export interface DashboardRecentOrders {
   is_express: boolean | undefined;
   quantity: number;
   total_price: number;
-  status: string;
-  payment_status: string;
-  estimated_done: string;
-  picked_up_at: string;
+  status: OrderStatus;
+  payment_status: PaymentStatus;
+  estimated_done: string | null;
+  picked_up_at: string | null;
   created_at: string;
 }
 
@@ -291,9 +296,8 @@ export type PercentageDiffRaw = {
   };
 };
 
-// export interface Income {
 export const STATUS_LABELS: Record<OrderStatus, string> = {
-  received: "Diterima",
+  received: "Baru Masuk",
   proses: "Diproses",
   cuci: "Dicuci",
   jemur: "Dijemur",
@@ -302,8 +306,6 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   picked_up: "Sudah Diambil",
 };
 
-// Surcharge express: +100% dari harga normal (dikenakan pada order per_kg).
-// Backend adalah sumber kebenaran total_price; konstanta ini hanya untuk estimasi UI.
 export const EXPRESS_SURCHARGE_RATE = 1; // +100%
 export const EXPRESS_MULTIPLIER = 1 + EXPRESS_SURCHARGE_RATE; // ×2
 

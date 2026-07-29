@@ -50,12 +50,13 @@ export function DashboardPage() {
   } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
-      const [stats, percentageDiff, ordersCount, expressOrders] = await Promise.all([
-        apiSafe.get<DashboardResponseRaw>(STATS),
-        apiSafe.get<PercentageDiffRaw>(PERCENTAGE_DIFF),
-        api.get(ORDERS_COUNT),
-        api.get(ORDERS_EXPRESS),
-      ]);
+      const [stats, percentageDiff, ordersCount, expressOrders] =
+        await Promise.all([
+          apiSafe.get<DashboardResponseRaw>(STATS),
+          apiSafe.get<PercentageDiffRaw>(PERCENTAGE_DIFF),
+          api.get(ORDERS_COUNT),
+          api.get(ORDERS_EXPRESS),
+        ]);
 
       const stats_all = {
         overdueOrders: Number(stats.data?.data.stats.overdueOrders),
@@ -68,23 +69,21 @@ export function DashboardPage() {
       };
 
       const recentOrders = stats.data?.data.recentOrders.map(
-        (item): DashboardRecentOrders => {
-          return {
-            id: item.id,
-            order_code: item.order_code,
-            customer_name: item.customers?.name ?? "-",
-            customer_phone: item.customers?.phone ?? "-",
-            service_name: item.service_prices?.name ?? "-",
-            is_express: item.is_express,
-            quantity: Number(item.quantity),
-            total_price: Number(item.total_price),
-            status: item.status as string,
-            payment_status: item.payment_status as string,
-            estimated_done: (item.estimated_done as string) ?? null,
-            picked_up_at: (item.picked_up_at as string) ?? null,
-            created_at: item.created_at as string,
-          };
-        },
+        (item): DashboardRecentOrders => ({
+          id: item.id,
+          order_code: item.order_code,
+          customer_name: item.customers?.name ?? "-",
+          customer_phone: item.customers?.phone ?? "-",
+          service_name: item.service_prices?.name ?? "-",
+          is_express: item.is_express,
+          quantity: Number(item.quantity),
+          total_price: Number(item.total_price),
+          status: item.status,
+          payment_status: item.payment_status,
+          estimated_done: item.estimated_done,
+          picked_up_at: item.picked_up_at,
+          created_at: item.created_at,
+        }),
       );
 
       return {
