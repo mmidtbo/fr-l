@@ -161,6 +161,8 @@ type DataTableProps = {
   onDelete?: (order: Order) => void;
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
+  expressFilter: string;
+  onExpressFilterChange: (value: string) => void;
   pagination: PaginationState;
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
   metadata: any;
@@ -176,6 +178,8 @@ export function DataTable({
   onDelete,
   statusFilter,
   onStatusFilterChange,
+  expressFilter,
+  onExpressFilterChange,
   pagination,
   setPagination,
   metadata,
@@ -503,38 +507,50 @@ export function DataTable({
         className="w-full flex-col justify-start gap-6"
       >
         <div className="flex items-center justify-between px-4 lg:px-6">
-          <Label htmlFor="view-selector" className="sr-only">
-            View
-          </Label>
-          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger
-              className="flex w-fit @4xl/main:hidden"
-              size="sm"
-              id="view-selector"
-            >
-              <SelectValue placeholder="Filter status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua</SelectItem>
-              <SelectItem value="received">Baru Masuk</SelectItem>
-              <SelectItem value="proses">Diproses</SelectItem>
-              <SelectItem value="cuci">Dicuci</SelectItem>
-              <SelectItem value="jemur">Dijemur</SelectItem>
-              <SelectItem value="setrika">Disetrika</SelectItem>
-              <SelectItem value="ready">Siap Diambil</SelectItem>
-              <SelectItem value="picked_up">Selesai</SelectItem>
-            </SelectContent>
-          </Select>
-          <TabsList className="hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
-            <TabsTrigger value="all">Semua</TabsTrigger>
-            <TabsTrigger value="received">Baru Masuk</TabsTrigger>
-            <TabsTrigger value="proses">Diproses</TabsTrigger>
-            <TabsTrigger value="cuci">Dicuci</TabsTrigger>
-            <TabsTrigger value="jemur">Dijemur</TabsTrigger>
-            <TabsTrigger value="setrika">Disetrika</TabsTrigger>
-            <TabsTrigger value="ready">Siap Diambil</TabsTrigger>
-            <TabsTrigger value="picked_up">Selesai</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="view-selector" className="sr-only">
+              View
+            </Label>
+            <Select value={expressFilter} onValueChange={onExpressFilterChange}>
+              <SelectTrigger className="flex w-fit " size="sm">
+                <SelectValue placeholder="Filter tipe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Tipe</SelectItem>
+                <SelectItem value="reguler">Reguler</SelectItem>
+                <SelectItem value="express">Express</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+              <SelectTrigger
+                className="flex w-fit @4xl/main:hidden"
+                size="sm"
+                id="view-selector"
+              >
+                <SelectValue placeholder="Filter status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="received">Baru Masuk</SelectItem>
+                <SelectItem value="proses">Diproses</SelectItem>
+                <SelectItem value="cuci">Dicuci</SelectItem>
+                <SelectItem value="jemur">Dijemur</SelectItem>
+                <SelectItem value="setrika">Disetrika</SelectItem>
+                <SelectItem value="ready">Siap Diambil</SelectItem>
+                <SelectItem value="picked_up">Selesai</SelectItem>
+              </SelectContent>
+            </Select>
+            <TabsList className="hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
+              <TabsTrigger value="all">Semua</TabsTrigger>
+              <TabsTrigger value="received">Baru Masuk</TabsTrigger>
+              <TabsTrigger value="proses">Diproses</TabsTrigger>
+              <TabsTrigger value="cuci">Dicuci</TabsTrigger>
+              <TabsTrigger value="jemur">Dijemur</TabsTrigger>
+              <TabsTrigger value="setrika">Disetrika</TabsTrigger>
+              <TabsTrigger value="ready">Siap Diambil</TabsTrigger>
+              <TabsTrigger value="picked_up">Selesai</TabsTrigger>
+            </TabsList>
+          </div>
 
           <div className="flex items-center gap-2">
             <DropdownMenu>

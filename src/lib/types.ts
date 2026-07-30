@@ -28,6 +28,7 @@ export const ORDERS = `${URL}/orders`;
 export const ORDERS_ALL = `${URL}/orders/all`;
 export const ORDERS_BY_STATUS = `${URL}/orders/status`;
 export const CUSTOMERS = `${URL}/customers`;
+export const CUSTOMERS_ALL = `${URL}/customers/all`;
 export const REFRESH = `${URL}/token/refresh`;
 export const STATS = `${URL}/dashboard/stats`;
 export const LINE_CHART = `${URL}/dashboard/orderweek`;
@@ -343,6 +344,7 @@ export async function fetchOrdersData(
   take?: number,
   status?: string,
   date?: string,
+  expressType?: string,
 ) {
   const params = new URLSearchParams();
   if (status && status !== "all") {
@@ -350,6 +352,9 @@ export async function fetchOrdersData(
   }
   if (date && date !== "all") {
     params.set("day", date);
+  }
+  if (expressType && expressType !== "all") {
+    params.set("type", expressType);
   }
 
   const queryStr = params.toString();

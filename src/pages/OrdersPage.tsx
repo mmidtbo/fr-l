@@ -24,8 +24,9 @@ import {
 } from "@/components/ui/select";
 import { SpinnerEmpty } from "@/components/ui/spinner-empty";
 import { apiSafe } from "@/lib/api/axios";
-import type { Order } from "@/lib/types";
+import type { Customer, Order, OrderStatus } from "@/lib/types";
 import {
+  CUSTOMERS_ALL,
   ORDERS,
   STATUS_LABELS,
   STATUS_NEXT,
@@ -35,6 +36,25 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+
+function getValidBulkStatuses(
+  selectedIds: Record<string, boolean>,
+  allOrders: Order[],
+): OrderStatus[] {
+  const selectedItems = allOrders.filter((o) => selectedIds[o.id]);
+  if (selectedItems.length === 0) return [];
+
+  const nextStatuses = new Set<OrderStatus>();
+
+  for (const order of selectedItems) {
+    const next = STATUS_NEXT[order.status];
+    if (next) nextStatuses.add(next);
+  }
+
+  return [...nextStatuses].filter((s) =>
+    selectedItems.every((o) => STATUS_NEXT[o.status] === s),
+  );
+}
 
 export function OrdersPage() {
   const [pagination, setPagination] = React.useState({
@@ -47,14 +67,21 @@ export function OrdersPage() {
   const searchRef = React.useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [dateFilter, setDateFilter] = React.useState("all");
+  const [expressFilter, setExpressFilter] = React.useState("all");
   const [statusUpdateOrder, setStatusUpdateOrder] =
     React.useState<Order | null>(null);
   const [updatingStatus, setUpdatingStatus] = React.useState(false);
   const [deleteOrder, setDeleteOrder] = React.useState<Order | null>(null);
   const [deletingOrder, setDeletingOrder] = React.useState(false);
-  const [selectedOrders, setSelectedOrders] = React.useState<Record<string, boolean>>({});
-  const [bulkStatusTarget, setBulkStatusTarget] = React.useState<string | null>(null);
+  const [selectedOrders, setSelectedOrders] = React.useState<
+    Record<string, boolean>
+  >({});
+  const [bulkStatusTarget, setBulkStatusTarget] = React.useState<string | null>(
+    null,
+  );
   const [bulkUpdating, setBulkUpdating] = React.useState(false);
+  const [bulkDelete, setBulkDelete] = React.useState(false);
+  const [bulkDeleting, setBulkDeleting] = React.useState(false);
   const [reOrder, setReOrder] = React.useState<Order | null>(null);
 
   React.useEffect(() => {
@@ -75,13 +102,20 @@ export function OrdersPage() {
   const queryClient = useQueryClient();
 
   const ordersResponse = useQuery({
-    queryKey: ["orders_data", statusFilter, dateFilter, pagination.pageIndex],
+    queryKey: [
+      "orders_data",
+      statusFilter,
+      dateFilter,
+      expressFilter,
+      pagination.pageIndex,
+    ],
     queryFn: async () => {
       const response = await fetchOrdersData(
         pagination.pageIndex + 1,
         pagination.pageSize,
         statusFilter,
         dateFilter,
+        expressFilter,
       );
       let orders;
       if (response?.ordersData) {
@@ -102,6 +136,14 @@ export function OrdersPage() {
     },
   });
 
+  const allCustomersQuery = useQuery({
+    queryKey: ["customers_all"],
+    queryFn: async () => {
+      const res = await apiSafe.get<{ data: Customer[] }>(CUSTOMERS_ALL);
+      return res.data?.data ?? [];
+    },
+  });
+
   const filteredOrders = React.useMemo(() => {
     const result = ordersResponse.data?.orders ?? [];
     if (!search) return result;
@@ -113,6 +155,12 @@ export function OrdersPage() {
         o.customers?.phone?.includes(q),
     );
   }, [ordersResponse.data?.orders, search]);
+
+  const validBulkStatuses = React.useMemo(
+    () =>
+      getValidBulkStatuses(selectedOrders, ordersResponse.data?.orders ?? []),
+    [selectedOrders, ordersResponse.data?.orders],
+  );
 
   const reOrderInitialData = React.useMemo(
     () =>
@@ -199,7 +247,7 @@ export function OrdersPage() {
 
   function onOrderCreated() {
     queryClient.invalidateQueries({ queryKey: ["orders_data"] });
-    toast.success("Pesanan baru berhasil dibuat.");
+    queryClient.invalidateQueries({ queryKey: ["customers_all"] });
   }
 
   const selectedCount = Object.keys(selectedOrders).length;
@@ -214,7 +262,9 @@ export function OrdersPage() {
     let failCount = 0;
 
     for (const id of selectedIds) {
-      const res = await apiSafe.put(`${ORDERS}/${id}`, { status: targetStatus });
+      const res = await apiSafe.put(`${ORDERS}/${id}`, {
+        status: targetStatus,
+      });
       if (res.error) failCount++;
       else successCount++;
     }
@@ -229,6 +279,31 @@ export function OrdersPage() {
 
     setBulkUpdating(false);
     setBulkStatusTarget(null);
+    setSelectedOrders({});
+  }
+
+  async function confirmBulkDelete() {
+    setBulkDeleting(true);
+    const ids = Object.keys(selectedOrders);
+    let ok = 0;
+    let fail = 0;
+
+    for (const id of ids) {
+      const res = await apiSafe.delete(`${ORDERS}/${id}`);
+      if (res.error) fail++;
+      else ok++;
+    }
+
+    if (ok > 0) {
+      queryClient.invalidateQueries({ queryKey: ["orders_data"] });
+      toast.success(`${ok} pesanan berhasil dihapus.`);
+    }
+    if (fail > 0) {
+      toast.error(`${fail} pesanan gagal dihapus.`);
+    }
+
+    setBulkDeleting(false);
+    setBulkDelete(false);
     setSelectedOrders({});
   }
 
@@ -355,10 +430,14 @@ export function OrdersPage() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => ordersResponse.refetch()}
-              title="Refresh"
-            >
-              <RefreshCw className="size-4" />
+            onClick={() => {
+              ordersResponse.refetch();
+              allCustomersQuery.refetch();
+              toast.success("Data berhasil diperbarui");
+            }}
+            title="Refresh"
+          >
+            <RefreshCw className="size-4" />
             </Button>
           </div>
         </CardContent>
@@ -371,16 +450,29 @@ export function OrdersPage() {
             {selectedCount} pesanan terpilih
           </span>
           <div className="ml-auto flex items-center gap-2">
-            <Select value={bulkStatusTarget ?? ""} onValueChange={setBulkStatusTarget}>
+            <Select
+              value={bulkStatusTarget ?? ""}
+              onValueChange={setBulkStatusTarget}
+            >
               <SelectTrigger className="w-44 h-8 text-sm">
-                <SelectValue placeholder="Update Status" />
+                <SelectValue
+                  placeholder={
+                    validBulkStatuses.length === 0
+                      ? "Tidak ada status"
+                      : "Update Status"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
+                {Object.entries(STATUS_LABELS)
+                  .filter(([key]) =>
+                    validBulkStatuses.includes(key as OrderStatus),
+                  )
+                  .map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <AlertDialog
@@ -389,12 +481,6 @@ export function OrdersPage() {
                 if (!open && !bulkUpdating) setBulkStatusTarget(null);
               }}
             >
-              <AlertDialogTrigger asChild>
-                <Button size="sm" disabled={!bulkStatusTarget}>
-                  <RefreshCw className="size-3.5" />
-                  Simpan
-                </Button>
-              </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogMedia>
@@ -402,18 +488,62 @@ export function OrdersPage() {
                   </AlertDialogMedia>
                   <AlertDialogTitle>Konfirmasi Update Massal</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Update status {selectedCount} pesanan menjadi{" "}
-                    "{bulkStatusTarget ? STATUS_LABELS[bulkStatusTarget as keyof typeof STATUS_LABELS] ?? bulkStatusTarget : ""}"?
+                    Update status {selectedCount} pesanan menjadi "
+                    {bulkStatusTarget
+                      ? (STATUS_LABELS[
+                          bulkStatusTarget as keyof typeof STATUS_LABELS
+                        ] ?? bulkStatusTarget)
+                      : ""}
+                    "?
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={bulkUpdating}>Batal</AlertDialogCancel>
+                  <AlertDialogCancel disabled={bulkUpdating}>
+                    Batal
+                  </AlertDialogCancel>
                   <AlertDialogAction
                     variant="default"
                     onClick={confirmBulkStatusUpdate}
                     disabled={bulkUpdating}
                   >
                     {bulkUpdating ? "Menyimpan..." : "Ya, Update"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog
+              open={bulkDelete}
+              onOpenChange={(open) => {
+                if (open) setBulkDelete(true);
+                else if (!bulkDeleting) setBulkDelete(false);
+              }}
+            >
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="size-3.5" />
+                  Hapus
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogMedia>
+                    <Trash2 className="size-5" />
+                  </AlertDialogMedia>
+                  <AlertDialogTitle>Konfirmasi Hapus Massal</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {selectedCount} pesanan akan dihapus permanen. Lanjutkan?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={bulkDeleting}>
+                    Batal
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={confirmBulkDelete}
+                    disabled={bulkDeleting}
+                  >
+                    {bulkDeleting ? "Menghapus..." : "Ya, Hapus Semua"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -433,10 +563,13 @@ export function OrdersPage() {
       <OrderDialog
         open={showNew || !!reOrder}
         onOpenChange={(open) => {
-          if (!open) { setShowNew(false); setReOrder(null); }
+          if (!open) {
+            setShowNew(false);
+            setReOrder(null);
+          }
         }}
         onSuccess={onOrderCreated}
-        customer={ordersResponse.data?.customers ?? []}
+        customer={allCustomersQuery.data ?? []}
         price={ordersResponse.data?.prices ?? []}
         initialData={reOrderInitialData}
       />
@@ -447,6 +580,8 @@ export function OrdersPage() {
         onDelete={setDeleteOrder}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        expressFilter={expressFilter}
+        onExpressFilterChange={setExpressFilter}
         pagination={pagination}
         setPagination={setPagination}
         metadata={ordersResponse.data?.order_metadata}
