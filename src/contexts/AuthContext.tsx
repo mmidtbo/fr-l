@@ -10,27 +10,7 @@ import {
 } from "@/lib/types";
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-
-interface AuthContextValue {
-  user: User | null;
-  loading: boolean;
-  signIn: (
-    email: string,
-    password: string,
-  ) => Promise<{ error: string | null }>;
-  signUp: (
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string,
-    role: "owner" | "karyawan",
-  ) => Promise<{ error: string | null }>;
-  signOut: () => Promise<{ error: string | null }>;
-}
-
-export const AuthContext = React.createContext<AuthContextValue | undefined>(
-  undefined,
-);
+import { AuthContext } from "./auth-context";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();

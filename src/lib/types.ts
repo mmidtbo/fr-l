@@ -26,6 +26,7 @@ export const LOGOUT = `${URL}/auth/current`;
 export const SERVICE = `${URL}/services`;
 export const ORDERS = `${URL}/orders`;
 export const ORDERS_ALL = `${URL}/orders/all`;
+export const ORDERS_OVERDUE = `${URL}/orders/overdue`;
 export const ORDERS_BY_STATUS = `${URL}/orders/status`;
 export const CUSTOMERS = `${URL}/customers`;
 export const CUSTOMERS_ALL = `${URL}/customers/all`;
@@ -263,7 +264,6 @@ export interface DashboardResponseRaw {
       todayOrders: number;
       todayRevenue: number;
       pendingPickup: number;
-      overdueOrders: number;
     };
     recentOrders: {
       id: string;
@@ -295,6 +295,18 @@ export type PercentageDiffRaw = {
   data: {
     percentage_diff: number;
   };
+};
+
+export type ExpressOrdersCountRaw = {
+  data: number;
+};
+
+export type OrdersCountRaw = {
+  data: number;
+};
+
+export type OverdueOrdersCountRaw = {
+  data: number;
 };
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {

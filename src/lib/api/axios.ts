@@ -40,9 +40,7 @@ function extractErrorMessage(error: any): string {
 }
 
 api.interceptors.response.use(
-  (response: AxiosResponse) => {
-    return response.data;
-  },
+  (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
@@ -72,6 +70,11 @@ api.interceptors.response.use(
   },
 );
 
+async function unwrap<T>(request: Promise<AxiosResponse<T>>): Promise<T> {
+  const response = await request;
+  return response.data;
+}
+
 export async function safeRequest<T>(
   request: Promise<T>,
 ): Promise<ApiResult<T>> {
@@ -90,10 +93,15 @@ export async function safeRequest<T>(
 }
 
 export const apiSafe = {
-  get: <T>(url: string) => safeRequest<T>(api.get(url)),
-  post: <T>(url: string, data: any) => safeRequest<T>(api.post(url, data)),
-  put: <T>(url: string, data: any) => safeRequest<T>(api.put(url, data)),
-  delete: <T>(url: string) => safeRequest<T>(api.delete(url)),
+  get: <T>(url: string) => safeRequest(unwrap(api.get<T>(url))),
+
+  post: <T>(url: string, data: any) =>
+    safeRequest(unwrap(api.post<T>(url, data))),
+
+  put: <T>(url: string, data: any) =>
+    safeRequest(unwrap(api.put<T>(url, data))),
+
+  delete: <T>(url: string) => safeRequest(unwrap(api.delete<T>(url))),
 };
 
 export default api;

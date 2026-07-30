@@ -430,14 +430,14 @@ export function OrdersPage() {
             <Button
               variant="outline"
               size="icon"
-            onClick={() => {
-              ordersResponse.refetch();
-              allCustomersQuery.refetch();
-              toast.success("Data berhasil diperbarui");
-            }}
-            title="Refresh"
-          >
-            <RefreshCw className="size-4" />
+              onClick={() => {
+                ordersResponse.refetch();
+                allCustomersQuery.refetch();
+                toast.success("Data berhasil diperbarui");
+              }}
+              title="Refresh"
+            >
+              <RefreshCw className="size-4" />
             </Button>
           </div>
         </CardContent>

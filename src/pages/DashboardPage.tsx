@@ -5,12 +5,15 @@ import { SectionCards } from "@/components/section-cards";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import api, { apiSafe } from "@/lib/api/axios";
+import { apiSafe } from "@/lib/api/axios";
 import type {
   BarChart as BC,
   DashboardRecentOrders,
   DashboardResponseRaw,
+  ExpressOrdersCountRaw,
   LineChart,
+  OrdersCountRaw,
+  OverdueOrdersCountRaw,
   PercentageDiffRaw,
 } from "@/lib/types";
 import {
@@ -18,6 +21,7 @@ import {
   LINE_CHART,
   ORDERS_COUNT,
   ORDERS_EXPRESS,
+  ORDERS_OVERDUE,
   PERCENTAGE_DIFF,
   STATS,
 } from "@/lib/types";
@@ -50,22 +54,23 @@ export function DashboardPage() {
   } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
-      const [stats, percentageDiff, ordersCount, expressOrders] =
+      const [stats, percentageDiff, ordersCount, expressOrders, overdueOrders] =
         await Promise.all([
           apiSafe.get<DashboardResponseRaw>(STATS),
           apiSafe.get<PercentageDiffRaw>(PERCENTAGE_DIFF),
-          api.get(ORDERS_COUNT),
-          api.get(ORDERS_EXPRESS),
+          apiSafe.get<OrdersCountRaw>(ORDERS_COUNT),
+          apiSafe.get<ExpressOrdersCountRaw>(ORDERS_EXPRESS),
+          apiSafe.get<OverdueOrdersCountRaw>(ORDERS_OVERDUE),
         ]);
 
       const stats_all = {
-        overdueOrders: Number(stats.data?.data.stats.overdueOrders),
+        overdueOrders: Number(overdueOrders.data?.data),
         pendingPickup: Number(stats.data?.data.stats.pendingPickup),
         todayOrders: Number(stats.data?.data.stats.todayOrders),
         todayRevenue: Number(stats.data?.data.stats.todayRevenue),
         percentageDiff: Number(percentageDiff.data?.data.percentage_diff),
-        ordersCount: Number(ordersCount.data),
-        expressOrders: Number(expressOrders.data),
+        ordersCount: Number(ordersCount.data?.data),
+        expressOrders: Number(expressOrders.data?.data),
       };
 
       const recentOrders = stats.data?.data.recentOrders.map(
