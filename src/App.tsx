@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { CustomersPage } from "@/pages/CustomersPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { AccountPage } from "@/pages/AccountPage";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { OrdersPage } from "@/pages/OrdersPage";
@@ -85,6 +86,7 @@ function AppContent() {
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersPage />} />
+          <Route path="account" element={<AccountPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route element={<RequireOwner />}>
             <Route path="reports" element={<ReportsPage />} />

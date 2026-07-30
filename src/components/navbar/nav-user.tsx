@@ -1,5 +1,12 @@
-import { BadgeCheck, ChevronsUpDown, LogOut } from "lucide-react";
-
+import {
+  BadgeCheck,
+  ChevronsUpDown,
+  LogOut,
+  Monitor,
+  Moon,
+  Settings,
+  Sun,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +36,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/components/theme-provider";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import * as React from "react";
@@ -36,6 +45,7 @@ export function NavUser() {
   const { isMobile } = useSidebar();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [showLogoutAlert, setShowLogoutAlert] = React.useState(false);
 
@@ -126,15 +136,62 @@ export function NavUser() {
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{displayName}</span>
-                    <span className="truncate text-xs">{user?.email}</span>
+                    <span className="flex items-center gap-1.5 truncate text-xs">
+                      {user?.email}
+                      <Badge
+                        variant="outline"
+                        className="px-1 text-[10px] leading-none font-normal capitalize"
+                      >
+                        {user?.role === "owner" ? "Owner" : "Karyawan"}
+                      </Badge>
+                    </span>
                   </div>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/account")}>
                   <BadgeCheck />
                   Account
+                </DropdownMenuItem>
+                {user?.role === "owner" && (
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <Settings />
+                    Settings
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setTheme("light")}>
+                  <Sun
+                    className={
+                      theme === "light"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }
+                  />
+                  Light
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")}>
+                  <Moon
+                    className={
+                      theme === "dark"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }
+                  />
+                  Dark
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")}>
+                  <Monitor
+                    className={
+                      theme === "system"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }
+                  />
+                  System
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />

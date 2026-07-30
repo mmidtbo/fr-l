@@ -101,6 +101,9 @@ export const apiSafe = {
   put: <T>(url: string, data: any) =>
     safeRequest(unwrap(api.put<T>(url, data))),
 
+  patch: <T>(url: string, data: any) =>
+    safeRequest(unwrap(api.patch<T>(url, data))),
+
   delete: <T>(url: string) => safeRequest(unwrap(api.delete<T>(url))),
 };
 

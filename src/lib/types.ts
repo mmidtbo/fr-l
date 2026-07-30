@@ -38,6 +38,9 @@ export const PERCENTAGE_DIFF = `${URL}/orders/percentage`;
 export const ORDERS_COUNT = `${URL}/orders/countorders`;
 export const ORDERS_EXPRESS = `${URL}/orders/express`;
 export const PAYMENTS = `${URL}/payments`;
+export const AUTH_CURRENT = `${URL}/auth/current`;
+export const AUTH_DELETE_ACCOUNT = `${URL}/auth/delete_account`;
+export const AUTH_NAME = `${URL}/auth/name`;
 
 export type SignOutResponse = {
   data: string;
@@ -47,7 +50,7 @@ export type SignOutResponse = {
 export type User = {
   id: string;
   email: string;
-  role: string;
+  role: UserRole;
   first_name?: string | null;
   last_name?: string | null;
 };
@@ -56,7 +59,7 @@ export type UserResponse = {
   data: {
     id: string;
     email: string;
-    role: string;
+    role: UserRole;
     first_name?: string | null;
     last_name?: string | null;
   };
