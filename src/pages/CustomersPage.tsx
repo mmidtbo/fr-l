@@ -92,7 +92,6 @@ export function CustomersPage() {
   });
 
   const allCustomers = customers.data?.data ?? [];
-  console.log(allCustomers);
 
   const filteredCustomers = React.useMemo(() => {
     if (!search.trim()) return allCustomers;
